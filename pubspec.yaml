@@ -13,7 +13,6 @@ dependencies:
   # Maps & Location
   google_maps_flutter: ^2.9.0
   geolocator: ^13.0.2
-  geocoding: ^3.0.0
 
   # Navigation
   go_router: ^14.6.3
