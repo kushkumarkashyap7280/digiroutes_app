@@ -3,7 +3,11 @@ class AppConstants {
   AppConstants._();
 
   // ─── API ────────────────────────────────────────────────────────────────
-  static const String baseUrl = 'https://digiroutes.vercel.app';
+  // Override for local testing: flutter run --dart-define=API_BASE_URL=http://<lan-ip>:3000
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://digiroutes.vercel.app',
+  );
 
   static const String loginEndpoint   = '/api/auth/login';
   static const String signupEndpoint  = '/api/auth/signup';
@@ -15,11 +19,9 @@ class AppConstants {
   static const String uploadEndpoint  = '/api/upload';
 
   // ─── Local Storage Keys ─────────────────────────────────────────────────
-  static const String tokenKey      = 'dr_auth_token';
-  static const String themeModeKey  = 'dr_theme_mode';
-
-  // ─── Google Maps ─────────────────────────────────────────────────────────
-  static const String mapsApiKey = 'AIzaSyCUIiQzaKZJ2VR8wRifGqEkxvkfhvsPRl4';
+  static const String tokenKey        = 'dr_auth_token';
+  static const String themeModeKey    = 'dr_theme_mode';
+  static const String soundEnabledKey = 'dr_sound_enabled';
 
   // ─── Map defaults (India centre) ─────────────────────────────────────────
   static const double defaultLat = 20.5937;

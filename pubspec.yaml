@@ -11,7 +11,6 @@ dependencies:
     sdk: flutter
 
   # Maps & Location
-  google_maps_flutter: ^2.9.0
   geolocator: ^13.0.2
 
   # Navigation
@@ -46,13 +45,23 @@ dependencies:
   # Utils
   intl: ^0.19.0
   url_launcher: ^6.3.1
-
+  webview_flutter: ^4.14.1
+  webview_flutter_android: ^4.14.1
+  webview_flutter_platform_interface: ^2.15.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
   build_runner: ^2.4.13
   riverpod_generator: ^2.6.1
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icons/app_icon.png"
 
 flutter:
   uses-material-design: true

@@ -46,23 +46,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final cards = ref.watch(cardsProvider);
 
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkBg,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppTheme.darkText),
-          onPressed: () => context.go('/home'),
+          icon: const Icon(Icons.menu),
+          onPressed: () =>
+              ref.read(scaffoldKeyProvider).currentState?.openDrawer(),
         ),
         title: Text('My Cards',
             style: GoogleFonts.outfit(
-              color: AppTheme.darkText,
               fontWeight: FontWeight.w700,
             )),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilledButton.icon(
-              onPressed: () => context.go('/create'),
+              onPressed: () => context.push('/create'),
               icon: const Icon(Icons.add, size: 18),
               label: Text('New',
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
@@ -79,10 +77,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       body: cards.isLoading
           ? _ShimmerGrid()
           : cards.cards.isEmpty
-              ? _EmptyState(onTap: () => context.go('/create'))
+              ? const _EmptyState()
               : RefreshIndicator(
                   color: AppTheme.orange,
-                  backgroundColor: AppTheme.darkSurface,
                   onRefresh: () => ref.read(cardsProvider.notifier).loadCards(),
                   child: GridView.builder(
                     controller: _scrollController,
@@ -103,7 +100,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       return _CardItem(
                         card: cards.cards[i],
                         index: i,
-                        onTap: () => context.go(
+                        onTap: () => context.push(
                             '/card/${cards.cards[i].digipin}'),
                         onDelete: () => _confirmDelete(cards.cards[i]),
                       );
@@ -117,20 +114,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.darkSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Delete Card',
-            style: GoogleFonts.outfit(
-                color: AppTheme.darkText, fontWeight: FontWeight.w700)),
-        content: Text(
-          'Delete "${card.title}"? This cannot be undone.',
-          style: GoogleFonts.outfit(color: AppTheme.darkTextSec),
-        ),
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+        content: Text('Delete "${card.title}"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel',
-                style: GoogleFonts.outfit(color: AppTheme.darkTextSec)),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -167,7 +157,7 @@ class _CardItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        decoration: AppTheme.cardDecoration(),
+        decoration: AppTheme.cardDecoration(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -175,17 +165,17 @@ class _CardItem extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(13)),
+                    const BorderRadius.vertical(top: Radius.circular(15)),
                 child: card.photoUrls.isNotEmpty
                     ? CachedNetworkImage(
                         imageUrl: card.photoUrls.first,
                         fit: BoxFit.cover,
                         width: double.infinity,
                         placeholder: (_, __) => Container(
-                          color: AppTheme.darkSurface2,
-                          child: const Center(
+                          color: AppTheme.surface2Color(context),
+                          child: Center(
                             child: Icon(Icons.image_outlined,
-                                color: AppTheme.darkMuted, size: 32),
+                                color: AppTheme.mutedColor(context), size: 32),
                           ),
                         ),
                         errorWidget: (_, __, ___) => _PlaceholderPhoto(),
@@ -205,7 +195,7 @@ class _CardItem extends StatelessWidget {
                     style: GoogleFonts.outfit(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.darkText,
+                      color: AppTheme.textColor(context),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -228,8 +218,8 @@ class _CardItem extends StatelessWidget {
                       ),
                       GestureDetector(
                         onTap: onDelete,
-                        child: const Icon(Icons.delete_outline,
-                            size: 16, color: AppTheme.darkMuted),
+                        child: Icon(Icons.delete_outline,
+                            size: 16, color: AppTheme.mutedColor(context)),
                       ),
                     ],
                   ),
@@ -250,7 +240,7 @@ class _PlaceholderPhoto extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.darkSurface2,
+      color: AppTheme.surface2Color(context),
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -260,7 +250,7 @@ class _PlaceholderPhoto extends StatelessWidget {
             const SizedBox(height: 4),
             Text('No photo',
                 style: GoogleFonts.outfit(
-                    color: AppTheme.darkMuted, fontSize: 11)),
+                    color: AppTheme.mutedColor(context), fontSize: 11)),
           ],
         ),
       ),
@@ -271,8 +261,7 @@ class _PlaceholderPhoto extends StatelessWidget {
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
-  final VoidCallback onTap;
-  const _EmptyState({required this.onTap});
+  const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
@@ -286,9 +275,9 @@ class _EmptyState extends StatelessWidget {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: AppTheme.darkSurface,
+                color: AppTheme.surfaceColor(context),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppTheme.darkBorder),
+                border: Border.all(color: AppTheme.borderColor(context)),
               ),
               child: const Icon(Icons.add_location_alt_outlined,
                   color: AppTheme.orange, size: 48),
@@ -298,23 +287,16 @@ class _EmptyState extends StatelessWidget {
                 style: GoogleFonts.outfit(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.darkText,
+                  color: AppTheme.textColor(context),
                 )).animate(delay: 150.ms).fadeIn(),
             const SizedBox(height: 8),
             Text('Create your first card to share\nyour exact doorstep location.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.outfit(
                   fontSize: 14,
-                  color: AppTheme.darkTextSec,
+                  color: AppTheme.textSecColor(context),
                   height: 1.5,
                 )).animate(delay: 200.ms).fadeIn(),
-            const SizedBox(height: 28),
-            ElevatedButton.icon(
-              onPressed: onTap,
-              icon: const Icon(Icons.add, size: 18),
-              label: Text('Create Card',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-            ).animate(delay: 300.ms).fadeIn(),
           ],
         ),
       ),
@@ -345,11 +327,11 @@ class _ShimmerCardItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: AppTheme.darkSurface,
-      highlightColor: AppTheme.darkSurface2,
+      baseColor: AppTheme.surfaceColor(context),
+      highlightColor: AppTheme.surface2Color(context),
       child: Container(
         decoration: BoxDecoration(
-          color: AppTheme.darkSurface,
+          color: AppTheme.surfaceColor(context),
           borderRadius: BorderRadius.circular(14),
         ),
       ),

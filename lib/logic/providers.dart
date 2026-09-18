@@ -1,9 +1,20 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/user.dart';
 import '../data/models/address_card.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/cards_repository.dart';
 import '../data/local/token_storage.dart';
+import '../data/local/settings_storage.dart';
+
+// ─── Shell ───────────────────────────────────────────────────────────────────
+
+/// Shared with the outer [AppShell] Scaffold so nested screens (Home, Cards)
+/// can open its Drawer, which must live on the outer Scaffold to paint above
+/// the floating bottom nav bar.
+final scaffoldKeyProvider = Provider<GlobalKey<ScaffoldState>>((ref) {
+  return GlobalKey<ScaffoldState>();
+});
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
 
@@ -197,4 +208,44 @@ final cardsProvider = StateNotifierProvider<CardsNotifier, CardsState>((ref) {
 
 // ─── Theme ───────────────────────────────────────────────────────────────────
 
-final themeModeProvider = StateProvider<bool>((ref) => true); // true = dark
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier() : super(ThemeMode.dark) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    state = await SettingsStorage.getThemeMode();
+  }
+
+  Future<void> setThemeMode(ThemeMode mode) async {
+    state = mode;
+    await SettingsStorage.setThemeMode(mode);
+  }
+}
+
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+  return ThemeModeNotifier();
+});
+
+// ─── Sound ───────────────────────────────────────────────────────────────────
+
+class SoundEnabledNotifier extends StateNotifier<bool> {
+  SoundEnabledNotifier() : super(true) {
+    _init();
+  }
+
+  Future<void> _init() async {
+    state = await SettingsStorage.getSoundEnabled();
+  }
+
+  Future<void> setSoundEnabled(bool enabled) async {
+    state = enabled;
+    await SettingsStorage.setSoundEnabled(enabled);
+  }
+}
+
+final soundEnabledProvider =
+    StateNotifierProvider<SoundEnabledNotifier, bool>((ref) {
+  return SoundEnabledNotifier();
+});

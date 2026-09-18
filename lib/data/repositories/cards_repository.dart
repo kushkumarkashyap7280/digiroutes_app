@@ -53,7 +53,7 @@ class CardsRepository {
   /// Fetch a single public card by [digipin].
   Future<AddressCard?> getCardByDigipin(String digipin) async {
     final res = await http.get(
-      _base.replace(path: '${AppConstants.cardsEndpoint}/$digipin'),
+      _base.replace(path: '${AppConstants.cardsEndpoint}/digipin/$digipin'),
     );
     if (res.statusCode == 404) return null;
     if (res.statusCode != 200) throw CardsException('Failed to load card.');

@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/map_widgets.dart';
+import '../../core/sound.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/repositories/cards_repository.dart';
 import '../../logic/digipin.dart';
@@ -26,9 +27,8 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
   final _picker       = ImagePicker();
   final _cardsRepo    = CardsRepository();
 
-  LatLng? _pickedLocation;
+  DigipinCoords? _pickedLocation;
   String? _generatedDigipin;
-  GoogleMapController? _mapController;
   List<File> _photos = [];
   bool _isLocating = false;
   bool _isSaving   = false;
@@ -44,16 +44,13 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkBg,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppTheme.darkText),
-          onPressed: () => context.go('/dashboard'),
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () => context.pop(),
         ),
         title: Text('New Address Card',
-            style: GoogleFonts.outfit(
-                color: AppTheme.darkText, fontWeight: FontWeight.w700)),
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
       ),
       body: Form(
         key: _formKey,
@@ -71,26 +68,20 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                 borderRadius: BorderRadius.circular(16),
                 child: SizedBox(
                   height: 220,
-                  child: GoogleMap(
-                    initialCameraPosition: const CameraPosition(
-                      target: LatLng(20.5937, 78.9629),
-                      zoom: 4,
-                    ),
-                    onMapCreated: (c) => _mapController = c,
-                    markers: _pickedLocation != null
-                        ? {
-                            Marker(
-                              markerId: const MarkerId('picked'),
-                              position: _pickedLocation!,
-                              icon: BitmapDescriptor.defaultMarkerWithHue(
-                                  BitmapDescriptor.hueOrange),
-                            )
-                          }
-                        : {},
-                    onTap: _onMapTap,
-                    zoomControlsEnabled: false,
-                    style: _darkMapStyle,
-                  ),
+                  child: _pickedLocation != null
+                      ? AppMapEmbed(
+                          key: ValueKey(
+                              '${_pickedLocation!.latitude.toStringAsFixed(5)},${_pickedLocation!.longitude.toStringAsFixed(5)}'),
+                          lat: _pickedLocation!.latitude,
+                          lon: _pickedLocation!.longitude,
+                        )
+                      : Container(
+                          color: AppTheme.surface2Color(context),
+                          alignment: Alignment.center,
+                          child: Icon(Icons.location_searching_rounded,
+                              color: AppTheme.mutedColor(context).withOpacity(0.6),
+                              size: 40),
+                        ),
                 ),
               ).animate(delay: 100.ms).fadeIn(),
 
@@ -131,9 +122,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Tap the map or use current location to set the pin.',
+                    'Tap "Use Current Location" to set the pin.',
                     style: GoogleFonts.outfit(
-                        fontSize: 12, color: AppTheme.darkMuted),
+                        fontSize: 12, color: AppTheme.mutedColor(context)),
                   ),
                 ),
 
@@ -145,11 +136,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
 
               TextFormField(
                 controller: _titleCtrl,
-                style: GoogleFonts.outfit(color: AppTheme.darkText),
                 decoration: const InputDecoration(
                   labelText: 'Card Title (e.g. Home, Office entrance)',
-                  prefixIcon: Icon(Icons.label_outline,
-                      color: AppTheme.darkMuted, size: 20),
+                  prefixIcon: Icon(Icons.label_outline, size: 20),
                 ),
                 validator: (v) => (v == null || v.trim().isEmpty)
                     ? 'Title is required.'
@@ -160,11 +149,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
 
               TextFormField(
                 controller: _addressCtrl,
-                style: GoogleFonts.outfit(color: AppTheme.darkText),
                 decoration: const InputDecoration(
                   labelText: 'Human address (optional, for display only)',
-                  prefixIcon: Icon(Icons.location_city_outlined,
-                      color: AppTheme.darkMuted, size: 20),
+                  prefixIcon: Icon(Icons.location_city_outlined, size: 20),
                 ),
                 maxLines: 2,
               ).animate(delay: 250.ms).fadeIn(),
@@ -218,10 +205,10 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          color: AppTheme.darkSurface2,
+                          color: AppTheme.surface2Color(context),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                              color: AppTheme.darkBorder,
+                              color: AppTheme.borderColor(context),
                               style: BorderStyle.solid),
                         ),
                         child: const Icon(Icons.add_photo_alternate_outlined,
@@ -283,18 +270,6 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
     );
   }
 
-  void _onMapTap(LatLng pos) {
-    setState(() {
-      _pickedLocation = pos;
-      try {
-        _generatedDigipin = getDigiPin(pos.latitude, pos.longitude);
-      } catch (_) {
-        _generatedDigipin = null;
-      }
-    });
-    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(pos, 16));
-  }
-
   Future<void> _useCurrentLocation() async {
     setState(() => _isLocating = true);
     try {
@@ -305,7 +280,14 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
       );
-      _onMapTap(LatLng(pos.latitude, pos.longitude));
+      setState(() {
+        _pickedLocation = DigipinCoords(latitude: pos.latitude, longitude: pos.longitude);
+        try {
+          _generatedDigipin = getDigiPin(pos.latitude, pos.longitude);
+        } catch (_) {
+          _generatedDigipin = null;
+        }
+      });
     } finally {
       setState(() => _isLocating = false);
     }
@@ -314,9 +296,6 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
   Future<void> _pickPhoto() async {
     final result = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: AppTheme.darkSurface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -324,15 +303,13 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined,
                   color: AppTheme.orange),
-              title: Text('Camera',
-                  style: GoogleFonts.outfit(color: AppTheme.darkText)),
+              title: const Text('Camera'),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined,
                   color: AppTheme.orange),
-              title: Text('Gallery',
-                  style: GoogleFonts.outfit(color: AppTheme.darkText)),
+              title: const Text('Gallery'),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
             const SizedBox(height: 8),
@@ -341,8 +318,28 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
       ),
     );
     if (result == null) return;
-    final xFile = await _picker.pickImage(source: result, imageQuality: 80);
-    if (xFile != null) setState(() => _photos.add(File(xFile.path)));
+    final xFile = await _picker.pickImage(
+      source: result,
+      imageQuality: 80,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
+    if (xFile == null) return;
+
+    final file = File(xFile.path);
+    const maxBytes = 2 * 1024 * 1024;
+    if (await file.length() > maxBytes) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Image is too large — please pick one under 2MB.',
+              style: GoogleFonts.outfit()),
+          backgroundColor: AppTheme.danger,
+        ));
+      }
+      return;
+    }
+
+    setState(() => _photos.add(file));
   }
 
   Future<void> _saveCard() async {
@@ -372,7 +369,8 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
       );
 
       if (card != null && mounted) {
-        context.go('/card/${card.digipin}');
+        AppSound.tap(ref);
+        context.pushReplacement('/card/${card.digipin}');
       } else {
         setState(() => _error = 'Failed to save card. Please try again.');
       }
@@ -413,26 +411,9 @@ class _StepHeader extends StatelessWidget {
             style: GoogleFonts.outfit(
               fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppTheme.darkText,
+              color: AppTheme.textColor(context),
             )),
       ],
     );
   }
 }
-
-const String _darkMapStyle = '''
-[
-  {"elementType":"geometry","stylers":[{"color":"#1a1a1a"}]},
-  {"elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},
-  {"elementType":"labels.text.stroke","stylers":[{"color":"#1a1a1a"}]},
-  {"featureType":"administrative","elementType":"geometry","stylers":[{"visibility":"off"}]},
-  {"featureType":"poi","stylers":[{"visibility":"off"}]},
-  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#303030"}]},
-  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#212121"}]},
-  {"featureType":"road","elementType":"labels.icon","stylers":[{"visibility":"off"}]},
-  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3d3d3d"}]},
-  {"featureType":"transit","stylers":[{"visibility":"off"}]},
-  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#111111"}]},
-  {"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}
-]
-''';

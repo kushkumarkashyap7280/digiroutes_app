@@ -7,8 +7,10 @@ import '../../ui/screens/login_screen.dart';
 import '../../ui/screens/signup_screen.dart';
 import '../../ui/screens/home_screen.dart';
 import '../../ui/screens/dashboard_screen.dart';
+import '../../ui/screens/compass_screen.dart';
 import '../../ui/screens/create_card_screen.dart';
 import '../../ui/screens/card_detail_screen.dart';
+import '../../ui/shell/app_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -32,9 +34,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/onboarding',  builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/login',       builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/signup',      builder: (_, __) => const SignupScreen()),
-      GoRoute(path: '/home',        builder: (_, __) => const HomeScreen()),
-      GoRoute(path: '/dashboard',   builder: (_, __) => const DashboardScreen()),
-      GoRoute(path: '/create',      builder: (_, __) => const CreateCardScreen()),
+
+      // Persistent bottom-nav shell — Home & Cards each keep their own stack.
+      StatefulShellRoute.indexedStack(
+        builder: (_, __, shell) => AppShell(navigationShell: shell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/dashboard', builder: (_, __) => const DashboardScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/compass', builder: (_, __) => const CompassScreen()),
+          ]),
+        ],
+      ),
+
+      GoRoute(path: '/create', builder: (_, __) => const CreateCardScreen()),
       GoRoute(
         path: '/card/:digipin',
         builder: (_, state) => CardDetailScreen(

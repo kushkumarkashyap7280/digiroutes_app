@@ -49,7 +49,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
       body: SafeArea(
         child: Column(
           children: [
@@ -62,7 +61,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: () => context.go('/login'),
                   child: Text('Skip',
                       style: GoogleFonts.outfit(
-                          color: AppTheme.darkTextSec, fontSize: 15)),
+                          color: AppTheme.textSecColor(context), fontSize: 15)),
                 ),
               ),
             ),
@@ -95,7 +94,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         decoration: BoxDecoration(
                           color: _page == i
                               ? AppTheme.orange
-                              : AppTheme.darkSurface2,
+                              : AppTheme.surface2Color(context),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -172,7 +171,7 @@ class _SlidePage extends StatelessWidget {
             style: GoogleFonts.outfit(
               fontSize: 28,
               fontWeight: FontWeight.w700,
-              color: AppTheme.darkText,
+              color: AppTheme.textColor(context),
               letterSpacing: -0.5,
             ),
           ).animate(delay: 150.ms).fadeIn().slideY(begin: 0.2, end: 0),
@@ -184,7 +183,7 @@ class _SlidePage extends StatelessWidget {
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
               fontSize: 15,
-              color: AppTheme.darkTextSec,
+              color: AppTheme.textSecColor(context),
               height: 1.6,
             ),
           ).animate(delay: 250.ms).fadeIn(),

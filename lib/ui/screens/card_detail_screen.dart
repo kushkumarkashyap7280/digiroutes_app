@@ -4,10 +4,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/map_widgets.dart';
+import '../../core/sound.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/address_card.dart';
 import '../../data/repositories/cards_repository.dart';
@@ -24,7 +25,7 @@ class CardDetailScreen extends ConsumerStatefulWidget {
 class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
   final _repo = CardsRepository();
   AddressCard? _card;
-  LatLng? _coords;
+  DigipinCoords? _coords;
   bool _loading = true;
   String? _error;
   int _photoIndex = 0;
@@ -44,10 +45,8 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
       } catch (_) {}
 
       setState(() {
-        _card   = card;
-        _coords = coords != null
-            ? LatLng(coords.latitude, coords.longitude)
-            : null;
+        _card    = card;
+        _coords  = coords;
         _loading = false;
       });
     } catch (e) {
@@ -61,17 +60,14 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkBg,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppTheme.darkText),
-          onPressed: () => context.go('/dashboard'),
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () => context.pop(),
         ),
         title: Text(
           _card?.title ?? widget.digipin,
-          style: GoogleFonts.outfit(
-              color: AppTheme.darkText, fontWeight: FontWeight.w700),
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
         ),
         actions: [
           IconButton(
@@ -100,6 +96,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
   }
 
   void _copyDigipin() {
+    AppSound.tap(ref);
     Clipboard.setData(ClipboardData(text: widget.digipin));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('DIGIPIN copied!', style: GoogleFonts.outfit()),
@@ -129,7 +126,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
 class _CardBody extends StatelessWidget {
   final AddressCard? card;
   final String digipin;
-  final LatLng? coords;
+  final DigipinCoords? coords;
   final int photoIndex;
   final ValueChanged<int> onPhotoTap;
   final VoidCallback onCopy;
@@ -167,15 +164,15 @@ class _CardBody extends StatelessWidget {
                   fit: BoxFit.cover,
                   width: double.infinity,
                   placeholder: (_, __) => Container(
-                    color: AppTheme.darkSurface2,
+                    color: AppTheme.surface2Color(context),
                     child: const Center(
                       child: CircularProgressIndicator(color: AppTheme.orange),
                     ),
                   ),
                   errorWidget: (_, __, ___) => Container(
-                    color: AppTheme.darkSurface2,
-                    child: const Icon(Icons.broken_image_outlined,
-                        color: AppTheme.darkMuted, size: 48),
+                    color: AppTheme.surface2Color(context),
+                    child: Icon(Icons.broken_image_outlined,
+                        color: AppTheme.mutedColor(context), size: 48),
                   ),
                 ),
               ),
@@ -195,7 +192,7 @@ class _CardBody extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: photoIndex == i
                             ? AppTheme.orange
-                            : AppTheme.darkSurface2,
+                            : AppTheme.surface2Color(context),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
@@ -206,7 +203,7 @@ class _CardBody extends StatelessWidget {
             Container(
               height: 200,
               width: double.infinity,
-              color: AppTheme.darkSurface,
+              color: AppTheme.surfaceColor(context),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -215,7 +212,7 @@ class _CardBody extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text('No entrance photo',
                       style: GoogleFonts.outfit(
-                          color: AppTheme.darkMuted, fontSize: 14)),
+                          color: AppTheme.mutedColor(context), fontSize: 14)),
                 ],
               ),
             ).animate().fadeIn(),
@@ -261,7 +258,7 @@ class _CardBody extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text('Tap to copy · ~4m precision',
                     style: GoogleFonts.outfit(
-                        fontSize: 11, color: AppTheme.darkMuted)),
+                        fontSize: 11, color: AppTheme.mutedColor(context))),
 
                 // ── Title & address ────────────────────────────────────────
                 if (card?.title != null) ...[
@@ -270,7 +267,7 @@ class _CardBody extends StatelessWidget {
                       style: GoogleFonts.outfit(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.darkText,
+                        color: AppTheme.textColor(context),
                       )).animate(delay: 150.ms).fadeIn(),
                 ],
                 if (card?.humanAddress != null &&
@@ -278,14 +275,14 @@ class _CardBody extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.location_city_outlined,
-                          color: AppTheme.darkMuted, size: 14),
+                      Icon(Icons.location_city_outlined,
+                          color: AppTheme.mutedColor(context), size: 14),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(card!.humanAddress,
                             style: GoogleFonts.outfit(
                               fontSize: 13,
-                              color: AppTheme.darkTextSec,
+                              color: AppTheme.textSecColor(context),
                             )),
                       ),
                     ],
@@ -300,22 +297,9 @@ class _CardBody extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: SizedBox(
                       height: 200,
-                      child: GoogleMap(
-                        initialCameraPosition: CameraPosition(
-                          target: coords!,
-                          zoom: 17,
-                        ),
-                        markers: {
-                          Marker(
-                            markerId: const MarkerId('pin'),
-                            position: coords!,
-                            icon: BitmapDescriptor.defaultMarkerWithHue(
-                                BitmapDescriptor.hueOrange),
-                          )
-                        },
-                        zoomControlsEnabled: false,
-                        scrollGesturesEnabled: false,
-                        style: _darkMapStyle,
+                      child: AppMapEmbed(
+                        lat: coords!.latitude,
+                        lon: coords!.longitude,
                       ),
                     ),
                   ).animate(delay: 250.ms).fadeIn(),
@@ -323,7 +307,7 @@ class _CardBody extends StatelessWidget {
                   Text(
                     '${coords!.latitude.toStringAsFixed(6)}, ${coords!.longitude.toStringAsFixed(6)}',
                     style: GoogleFonts.outfit(
-                        fontSize: 12, color: AppTheme.darkMuted),
+                        fontSize: 12, color: AppTheme.mutedColor(context)),
                   ),
                 ],
 
@@ -382,20 +366,3 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
-
-const String _darkMapStyle = '''
-[
-  {"elementType":"geometry","stylers":[{"color":"#1a1a1a"}]},
-  {"elementType":"labels.text.fill","stylers":[{"color":"#8a8a8a"}]},
-  {"elementType":"labels.text.stroke","stylers":[{"color":"#1a1a1a"}]},
-  {"featureType":"administrative","elementType":"geometry","stylers":[{"visibility":"off"}]},
-  {"featureType":"poi","stylers":[{"visibility":"off"}]},
-  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#303030"}]},
-  {"featureType":"road","elementType":"geometry.stroke","stylers":[{"color":"#212121"}]},
-  {"featureType":"road","elementType":"labels.icon","stylers":[{"visibility":"off"}]},
-  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#3d3d3d"}]},
-  {"featureType":"transit","stylers":[{"visibility":"off"}]},
-  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#111111"}]},
-  {"featureType":"water","elementType":"labels.text.fill","stylers":[{"color":"#3d3d3d"}]}
-]
-''';

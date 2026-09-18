@@ -3,19 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'logic/providers.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Set immersive dark status bar / navigation bar
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: AppTheme.darkBg,
-      systemNavigationBarIconBrightness: Brightness.light,
-    ),
-  );
 
   runApp(
     const ProviderScope(
@@ -30,14 +21,25 @@ class DigiRoutesApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeModeProvider);
 
     return MaterialApp.router(
       title: 'DigiRoutes',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.dark,
+      themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          systemNavigationBarColor: isDark ? AppTheme.darkBg : AppTheme.lightBg,
+          systemNavigationBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+        ));
+        return child!;
+      },
     );
   }
 }
