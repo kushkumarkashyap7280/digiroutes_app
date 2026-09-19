@@ -120,29 +120,68 @@ Future<void> maybePromptUpdate(BuildContext context) async {
 }
 
 Future<void> _downloadAndInstall(BuildContext context, UpdateInfo info) async {
+  final progress = ValueNotifier<double?>(null); // null = size unknown yet
+  final status = ValueNotifier<String>('Starting…');
+
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
-      content: Row(
+      title: Text('Downloading update',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2)),
-          const SizedBox(width: 16),
-          Expanded(
-              child: Text('Downloading update…', style: GoogleFonts.outfit())),
+          ValueListenableBuilder<double?>(
+            valueListenable: progress,
+            builder: (_, value, __) => ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: value,
+                minHeight: 8,
+                backgroundColor: AppTheme.orangeSubtle,
+                color: AppTheme.orange,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ValueListenableBuilder<String>(
+            valueListenable: status,
+            builder: (_, text, __) => Text(text,
+                style: GoogleFonts.outfit(
+                    fontSize: 12, color: AppTheme.mutedColor(ctx))),
+          ),
         ],
       ),
     ),
   );
 
+  final client = http.Client();
   try {
-    final res = await http.get(Uri.parse(info.apkUrl));
+    final response =
+        await client.send(http.Request('GET', Uri.parse(info.apkUrl)));
+    final total = response.contentLength ?? 0;
+    var received = 0;
+
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/digiroutes-update.apk');
-    await file.writeAsBytes(res.bodyBytes);
+    final sink = file.openWrite();
+
+    await response.stream.map((chunk) {
+      received += chunk.length;
+      final mb = received / 1e6;
+      if (total > 0) {
+        progress.value = received / total;
+        status.value = '${mb.toStringAsFixed(1)} MB of '
+            '${(total / 1e6).toStringAsFixed(1)} MB '
+            '(${(progress.value! * 100).round()}%)';
+      } else {
+        status.value = '${mb.toStringAsFixed(1)} MB downloaded';
+      }
+      return chunk;
+    }).pipe(sink);
+    await sink.close();
 
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     await OpenFilex.open(file.path);
@@ -155,5 +194,7 @@ Future<void> _downloadAndInstall(BuildContext context, UpdateInfo info) async {
         backgroundColor: AppTheme.danger,
       ));
     }
+  } finally {
+    client.close();
   }
 }
