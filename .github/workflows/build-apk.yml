@@ -39,6 +39,22 @@ jobs:
       - name: Run Flutter Tests
         run: flutter test
 
+      - name: Restore Release Keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          mkdir -p android/keystore
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > android/keystore/upload-keystore.jks
+          cat > android/key.properties << EOF
+          storePassword=$RELEASE_KEYSTORE_PASSWORD
+          keyPassword=$RELEASE_KEY_PASSWORD
+          keyAlias=$RELEASE_KEY_ALIAS
+          storeFile=../keystore/upload-keystore.jks
+          EOF
+
       - name: Build Release APK
         run: flutter build apk --release
 
@@ -51,13 +67,9 @@ jobs:
       - name: Determine Release Tag
         id: release_info
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-            echo "title=Release ${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=v1.0.0" >> $GITHUB_OUTPUT
-            echo "title=DigiRoutes Android App v1.0.0" >> $GITHUB_OUTPUT
-          fi
+          VERSION=$(grep '^version:' pubspec.yaml | head -1 | sed 's/version: *//' | sed 's/+.*//' | tr -d '[:space:]')
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "title=DigiRoutes v$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2

@@ -70,14 +70,18 @@ class _CompassScreenState extends ConsumerState<CompassScreen> {
             style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Encode coordinates to DIGIPIN, decode a DIGIPIN back to '
-                'lat/lon, or capture your live location — all offline.',
+            Text(
+                'Encode coordinates to DIGIPIN, decode a DIGIPIN back to '
+                'lat/lon, or capture your live location — instantly, on '
+                'your device.',
                 style: GoogleFonts.outfit(
-                    fontSize: 13, color: AppTheme.textSecColor(context), height: 1.5)),
+                    fontSize: 13,
+                    color: AppTheme.textSecColor(context),
+                    height: 1.5)),
             const SizedBox(height: 16),
 
             // ── Mode selector ─────────────────────────────────────────
@@ -142,7 +146,10 @@ class _CompassScreenState extends ConsumerState<CompassScreen> {
   }
 
   Future<void> _captureGps() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       LocationPermission perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
@@ -153,7 +160,8 @@ class _CompassScreenState extends ConsumerState<CompassScreen> {
         return;
       }
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
       );
       final pin = getDigiPin(pos.latitude, pos.longitude);
       AppSound.tap(ref);
@@ -175,7 +183,8 @@ class _CompassScreenState extends ConsumerState<CompassScreen> {
   void _decodePin() {
     final pin = _pinCtrl.text.trim().toUpperCase();
     if (pin.length != 10) {
-      setState(() => _error = 'Please enter a valid 10-character DIGIPIN code.');
+      setState(
+          () => _error = 'Please enter a valid 10-character DIGIPIN code.');
       return;
     }
     try {
@@ -199,7 +208,8 @@ class _CompassScreenState extends ConsumerState<CompassScreen> {
     final lat = double.tryParse(_latCtrl.text.trim());
     final lon = double.tryParse(_lonCtrl.text.trim());
     if (lat == null || lon == null) {
-      setState(() => _error = 'Please enter valid numeric latitude and longitude.');
+      setState(
+          () => _error = 'Please enter valid numeric latitude and longitude.');
       return;
     }
     try {
@@ -223,7 +233,8 @@ class _CompassScreenState extends ConsumerState<CompassScreen> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text?.trim();
     if (text == null || text.isEmpty) return;
-    final parts = text.split(RegExp(r'[,\s/]+')).where((s) => s.isNotEmpty).toList();
+    final parts =
+        text.split(RegExp(r'[,\s/]+')).where((s) => s.isNotEmpty).toList();
     if (parts.length >= 2) {
       setState(() {
         _latCtrl.text = parts[0];
@@ -252,22 +263,25 @@ class _ModeSelector extends StatelessWidget {
       segments: const [
         ButtonSegment(
             value: _CompassMode.gps,
-            icon: Icon(Icons.my_location_rounded, size: 16),
-            label: Text('Live GPS')),
+            icon: Icon(Icons.my_location_rounded, size: 15),
+            label: Text('GPS', maxLines: 1, softWrap: false)),
         ButtonSegment(
             value: _CompassMode.decode,
-            icon: Icon(Icons.explore_outlined, size: 16),
-            label: Text('Decode PIN')),
+            icon: Icon(Icons.explore_outlined, size: 15),
+            label: Text('Decode', maxLines: 1, softWrap: false)),
         ButtonSegment(
             value: _CompassMode.encode,
-            icon: Icon(Icons.public, size: 16),
-            label: Text('Coordinates')),
+            icon: Icon(Icons.public, size: 15),
+            label: Text('Coords', maxLines: 1, softWrap: false)),
       ],
       selected: {mode},
       onSelectionChanged: (s) => onChanged(s.first),
       showSelectedIcon: false,
       style: SegmentedButton.styleFrom(
-        textStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600),
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        textStyle:
+            GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -295,12 +309,15 @@ class _GpsPanel extends StatelessWidget {
         const SizedBox(height: 12),
         Text('Capture My Location',
             style: GoogleFonts.outfit(
-                fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textColor(context))),
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textColor(context))),
         const SizedBox(height: 6),
         Text(
           'Get your exact GPS coordinates and compute your India Post DIGIPIN (~4m accuracy).',
           textAlign: TextAlign.center,
-          style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.mutedColor(context), height: 1.5),
+          style: GoogleFonts.outfit(
+              fontSize: 12, color: AppTheme.mutedColor(context), height: 1.5),
         ),
         const SizedBox(height: 16),
         SizedBox(
@@ -309,8 +326,10 @@ class _GpsPanel extends StatelessWidget {
             onPressed: loading ? null : onCapture,
             icon: loading
                 ? const SizedBox(
-                    width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                 : const Icon(Icons.my_location_rounded, size: 16),
             label: Text(loading ? 'Capturing GPS...' : 'Get My DIGIPIN Now',
                 style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
@@ -327,7 +346,10 @@ class _DecodePanel extends StatelessWidget {
   final TextEditingController controller;
   final bool loading;
   final VoidCallback onSubmit;
-  const _DecodePanel({required this.controller, required this.loading, required this.onSubmit});
+  const _DecodePanel(
+      {required this.controller,
+      required this.loading,
+      required this.onSubmit});
 
   @override
   Widget build(BuildContext context) {
@@ -335,20 +357,27 @@ class _DecodePanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('Enter 10-Character DIGIPIN Code',
-            style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textColor(context))),
+            style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textColor(context))),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           maxLength: 10,
           textCapitalization: TextCapitalization.characters,
           style: GoogleFonts.robotoMono(
-              color: AppTheme.orange, fontWeight: FontWeight.w700, letterSpacing: 2),
+              color: AppTheme.orange,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2),
           decoration: const InputDecoration(
               hintText: 'e.g. 4T396F42L7', counterText: ''),
         ),
         const SizedBox(height: 4),
-        Text('Allowed characters: 2-9, C, F, J, K, L, M, P, T (case-insensitive).',
-            style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.mutedColor(context))),
+        Text(
+            'Allowed characters: 2-9, C, F, J, K, L, M, P, T (case-insensitive).',
+            style: GoogleFonts.outfit(
+                fontSize: 11, color: AppTheme.mutedColor(context))),
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
@@ -391,8 +420,10 @@ class _EncodePanel extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: latController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                style: GoogleFonts.robotoMono(color: AppTheme.textColor(context)),
+                keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true, signed: true),
+                style:
+                    GoogleFonts.robotoMono(color: AppTheme.textColor(context)),
                 decoration: const InputDecoration(
                     labelText: 'Latitude', hintText: '28.613939'),
               ),
@@ -401,8 +432,10 @@ class _EncodePanel extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: lonController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                style: GoogleFonts.robotoMono(color: AppTheme.textColor(context)),
+                keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true, signed: true),
+                style:
+                    GoogleFonts.robotoMono(color: AppTheme.textColor(context)),
                 decoration: const InputDecoration(
                     labelText: 'Longitude', hintText: '77.209021'),
               ),
@@ -413,12 +446,15 @@ class _EncodePanel extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text('Or paste a coordinate pair, e.g. "28.6139, 77.2090".',
-                  style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.mutedColor(context))),
+              child: Text(
+                  'Or paste a coordinate pair, e.g. "28.6139, 77.2090".',
+                  style: GoogleFonts.outfit(
+                      fontSize: 11, color: AppTheme.mutedColor(context))),
             ),
             TextButton(
               onPressed: onPastePair,
-              child: Text('Paste Pair', style: GoogleFonts.outfit(fontSize: 12)),
+              child:
+                  Text('Paste Pair', style: GoogleFonts.outfit(fontSize: 12)),
             ),
           ],
         ),
@@ -443,7 +479,8 @@ class _ResultCard extends StatelessWidget {
   final _CompassResult result;
   const _ResultCard({required this.result});
 
-  String get _mapLink => 'https://www.google.com/maps?q=${result.lat},${result.lon}';
+  String get _mapLink =>
+      'https://www.google.com/maps?q=${result.lat},${result.lon}';
   String get _shareLink => '${AppConstants.cardShareBase}/${result.digipin}';
 
   @override
@@ -464,10 +501,16 @@ class _ResultCard extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(result.source,
-                    style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.mutedColor(context), fontWeight: FontWeight.w600)),
+                    style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: AppTheme.mutedColor(context),
+                        fontWeight: FontWeight.w600)),
               ),
               Text('~4m Precision',
-                  style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.orange, fontWeight: FontWeight.w600)),
+                  style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: AppTheme.orange,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 14),
@@ -484,9 +527,12 @@ class _ResultCard extends StatelessWidget {
               Expanded(
                 child: _InfoTile(
                   label: 'COORDINATES',
-                  value: '${result.lat.toStringAsFixed(6)}, ${result.lon.toStringAsFixed(6)}',
-                  onCopy: () => _copy(context,
-                      '${result.lat.toStringAsFixed(6)}, ${result.lon.toStringAsFixed(6)}', 'Coordinates'),
+                  value:
+                      '${result.lat.toStringAsFixed(6)}, ${result.lon.toStringAsFixed(6)}',
+                  onCopy: () => _copy(
+                      context,
+                      '${result.lat.toStringAsFixed(6)}, ${result.lon.toStringAsFixed(6)}',
+                      'Coordinates'),
                 ),
               ),
             ],
@@ -503,7 +549,8 @@ class _ResultCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => launchUrl(Uri.parse(_mapLink), mode: LaunchMode.externalApplication),
+              onPressed: () => launchUrl(Uri.parse(_mapLink),
+                  mode: LaunchMode.externalApplication),
               icon: const Icon(Icons.navigation_rounded, size: 16),
               label: Text('Navigate with Google Maps',
                   style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
@@ -558,13 +605,16 @@ class _ResultCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12)),
                 child: QrImageView(data: _shareLink, size: 200),
               ),
               const SizedBox(height: 16),
               Text(result.digipin,
                   style: GoogleFonts.outfit(
-                      color: AppTheme.orange, fontWeight: FontWeight.w800, letterSpacing: 2)),
+                      color: AppTheme.orange,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2)),
               const SizedBox(height: 16),
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
@@ -582,7 +632,8 @@ class _InfoTile extends StatelessWidget {
   final String label;
   final String value;
   final VoidCallback onCopy;
-  const _InfoTile({required this.label, required this.value, required this.onCopy});
+  const _InfoTile(
+      {required this.label, required this.value, required this.onCopy});
 
   @override
   Widget build(BuildContext context) {
@@ -597,7 +648,10 @@ class _InfoTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style: GoogleFonts.outfit(fontSize: 10, color: AppTheme.mutedColor(context), fontWeight: FontWeight.w700)),
+              style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  color: AppTheme.mutedColor(context),
+                  fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -606,7 +660,9 @@ class _InfoTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.robotoMono(
-                        fontSize: 12, color: AppTheme.textColor(context), fontWeight: FontWeight.w700)),
+                        fontSize: 12,
+                        color: AppTheme.textColor(context),
+                        fontWeight: FontWeight.w700)),
               ),
               GestureDetector(
                 onTap: onCopy,

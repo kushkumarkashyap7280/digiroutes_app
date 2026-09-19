@@ -87,12 +87,16 @@ class SettingsDrawer extends ConsumerWidget {
                   style: GoogleFonts.outfit(
                       color: theme.textTheme.bodyLarge?.color)),
               subtitle: Text('Haptic + click on key actions',
-                  style: GoogleFonts.outfit(
-                      fontSize: 12, color: theme.hintColor)),
+                  style:
+                      GoogleFonts.outfit(fontSize: 12, color: theme.hintColor)),
               activeThumbColor: AppTheme.orange,
               value: soundEnabled,
-              onChanged: (v) =>
-                  ref.read(soundEnabledProvider.notifier).setSoundEnabled(v),
+              onChanged: (v) async {
+                await ref
+                    .read(soundEnabledProvider.notifier)
+                    .setSoundEnabled(v);
+                if (v) AppSound.tap(ref);
+              },
             ),
             const SizedBox(height: 12),
             Divider(color: theme.dividerColor),

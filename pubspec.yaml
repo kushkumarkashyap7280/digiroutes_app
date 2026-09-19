@@ -1,7 +1,7 @@
 name: digiroutes_app
 description: "DigiRoute — Share your exact doorstep location with a 10-character DIGIPIN."
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -48,6 +48,14 @@ dependencies:
   webview_flutter: ^4.14.1
   webview_flutter_android: ^4.14.1
   webview_flutter_platform_interface: ^2.15.1
+
+  # Sound
+  audioplayers: ^6.1.0
+
+  # In-app updates (sideloaded APK — check GitHub Releases, download & install)
+  package_info_plus: ^8.1.2
+  path_provider: ^2.1.5
+  open_filex: ^4.5.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -68,3 +76,4 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/sounds/

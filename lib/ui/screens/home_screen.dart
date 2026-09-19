@@ -11,6 +11,7 @@ import '../../core/map_widgets.dart';
 import '../../core/maps_share.dart';
 import '../../core/sound.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/update_checker.dart';
 import '../../core/widgets/glass.dart';
 import '../../logic/digipin.dart';
 import '../../logic/providers.dart';
@@ -29,6 +30,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   double _lat = AppConstants.defaultLat;
   double _lon = AppConstants.defaultLng;
   double _zoom = AppConstants.defaultZoom;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybePromptUpdate(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
