@@ -13,9 +13,12 @@ void main() {
         ),
       ),
     );
-    await tester.pump(const Duration(seconds: 1));
+    // Let the staggered entrance animations (delays up to ~2s) finish so no
+    // timers are left pending when the tree is disposed.
+    await tester.pump(const Duration(seconds: 4));
     expect(find.byType(OnboardingScreen), findsOneWidget);
-    expect(find.text('What is DIGIPIN?'), findsOneWidget);
+    expect(find.textContaining('one precise code'), findsOneWidget);
+    expect(find.text('DIGIPIN'), findsOneWidget);
   });
 
   group('DIGIPIN unit tests', () {
