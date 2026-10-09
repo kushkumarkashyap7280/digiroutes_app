@@ -24,11 +24,18 @@ find the right door.
   (max 4 MB each, uploaded straight to Cloudinary), **category**
   (Home · Work · Shop · Family · Other), **delivery note** (≤ 300 chars, e.g.
   "Ring twice, call before entering") and **contact phone**.
-- **Edit / delete** any card (location is fixed once created). Replaced or
-  deleted photos are removed from Cloudinary.
+- **Edit / delete** any card (location is fixed once created).
+- **Photos never pile up:** replacing or removing a photo, deleting a card,
+  changing/removing your profile picture or deleting your account all delete the
+  images from Cloudinary. If a save fails after photos were uploaded, the app
+  discards those uploads (`/api/upload/cleanup`), and the server refuses to
+  delete any image that isn't in the caller's own folder.
 - **Favorites:** star a card; favorites float to the top.
-- **Search & filter:** search by title, address or DIGIPIN; filter chips for
-  *All*, *Favorites* and the categories you actually use.
+- **Search & filter on the server:** search by title, address or DIGIPIN and
+  filter by *All*, *Favorites* or a category. Both run on the backend, so they
+  cover **all** your cards, not just the ones already loaded.
+- **Pagination:** cards load 12 at a time (cursor-based) as you scroll; the
+  saved-cards list in the route picker pages with a *Show more* button.
 - Long-press a card for quick actions (favorite, edit, share, QR, delete).
 
 ### Sharing & opening
@@ -68,7 +75,9 @@ find the right door.
 - **Profile page:** profile photo upload (camera / gallery / remove, ≤ 4 MB),
   edit name, card & favorite counts.
 - **Settings page:** theme (Light default · Dark · Auto), sound & haptics,
-  check for updates, version, log out (always confirmed).
+  check for updates, version, log out (always confirmed) and **Delete account**
+  (password required; removes your profile, every card, all photos and your
+  avatar — irreversible).
 - **In-app updates:** the app compares its version with the latest GitHub
   release and offers to download and install the new APK.
 
@@ -166,11 +175,12 @@ generation is used.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | POST | `/api/auth/signup` · `/login` | Create account / sign in → JWT (rate-limited) |
-| GET · PUT | `/api/auth/me` | Current user · update name / avatar |
-| GET · POST | `/api/cards` | List own cards (cursor pagination) · create |
+| GET · PUT · DELETE | `/api/auth/me` | Current user · update name / avatar · delete account (password) |
+| GET · POST | `/api/cards` | List own cards (cursor pagination, `q`, `category`, `favorite`; first page returns `total` + facets) · create |
 | PUT · DELETE | `/api/cards/:id` | Update (incl. favorite, category, note, phone) · delete |
 | GET | `/api/cards/digipin/:pin` | **Public** card lookup used by shared links / QR |
 | POST | `/api/upload/sign` | Signed Cloudinary upload parameters |
+| POST | `/api/upload/cleanup` | Discard uploads whose save failed (only unused images in the caller's folder) |
 
 Auth is `Authorization: Bearer <token>` for the app (cookie for the website).
 

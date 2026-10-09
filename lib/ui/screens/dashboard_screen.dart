@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -26,13 +27,13 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final _scrollController = ScrollController();
   final _searchCtrl = TextEditingController();
-  String _filter = 'all'; // 'all' | 'fav' | a category id
-  String _query = '';
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchCtrl.text = ref.read(cardsProvider).query;
       ref.read(cardsProvider.notifier).loadCards();
     });
     _scrollController.addListener(_onScroll);
@@ -40,34 +41,72 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _scrollController.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
 
+  // Infinite scroll: ask for the next page when near the bottom.
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+        _scrollController.position.maxScrollExtent - 240) {
       ref.read(cardsProvider.notifier).loadMore();
     }
+  }
+
+  // Search runs on the server (all pages), so wait for a pause in typing.
+  void _onSearchChanged(String text) {
+    setState(() {}); // shows/hides the clear button
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      ref.read(cardsProvider.notifier).setQuery(text);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final cards = ref.watch(cardsProvider);
-    final q = _query.trim().toLowerCase();
-    final visible = cards.cards.where((c) {
-      if (_filter == 'fav' && !c.isFavorite) return false;
-      if (_filter != 'all' && _filter != 'fav' && c.category != _filter) {
-        return false;
+    final notifier = ref.read(cardsProvider.notifier);
+    final firstLoad = cards.isLoading && cards.cards.isEmpty && !cards.isFiltered;
+    final noCardsAtAll =
+        cards.allCount == 0 && !cards.isFiltered && !cards.isLoading;
+
+    Widget list() {
+      if (cards.isLoading) return _ShimmerGrid();
+      if (cards.error != null && cards.cards.isEmpty) {
+        return _ErrorRetry(message: cards.error!, onRetry: notifier.loadCards);
       }
-      if (q.isEmpty) return true;
-      return c.title.toLowerCase().contains(q) ||
-          c.digipin.toLowerCase().contains(q) ||
-          c.humanAddress.toLowerCase().contains(q);
-    }).toList()
-      // favorites float to the top, otherwise keep server (newest-first) order
-      ..sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0));
+      if (cards.cards.isEmpty) return _NoMatches(filter: cards.filter);
+      return RefreshIndicator(
+        color: AppTheme.orange,
+        onRefresh: notifier.loadCards,
+        child: GridView.builder(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            childAspectRatio: 0.74,
+          ),
+          itemCount: cards.cards.length + (cards.isLoadingMore ? 2 : 0),
+          itemBuilder: (ctx, i) {
+            if (i >= cards.cards.length) return _ShimmerCardItem();
+            final card = cards.cards[i];
+            return _CardItem(
+              key: ValueKey(card.id),
+              card: card,
+              index: i % 12, // stagger only within a page
+              onTap: () => context.push('/card/${card.digipin}'),
+              onFavorite: () => _toggleFavorite(card),
+              onMenu: () => _showActions(card),
+            );
+          },
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -77,64 +116,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ref.read(scaffoldKeyProvider).currentState?.openDrawer(),
         ),
         title: Text('My Cards',
-            style: GoogleFonts.outfit(
-              fontWeight: FontWeight.w700,
-            )),
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+        actions: [
+          if (cards.allCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Text('${cards.allCount} total',
+                    style: GoogleFonts.outfit(
+                        fontSize: 13, color: AppTheme.mutedColor(context))),
+              ),
+            ),
+        ],
       ),
-      body: cards.isLoading
+      body: firstLoad
           ? _ShimmerGrid()
-          : cards.cards.isEmpty
+          : noCardsAtAll
               ? const _EmptyState()
               : Column(
                   children: [
                     _SearchBar(
                       controller: _searchCtrl,
-                      onChanged: (v) => setState(() => _query = v),
-                      filter: _filter,
-                      favCount: cards.cards.where((c) => c.isFavorite).length,
-                      usedCategories:
-                          cards.cards.map((c) => c.category).toSet(),
-                      onFilter: (v) => setState(() => _filter = v),
+                      onChanged: _onSearchChanged,
+                      filter: cards.filter,
+                      favCount: cards.favoriteCount,
+                      usedCategories: cards.categories.toSet(),
+                      onFilter: (v) => notifier.setFilter(v),
                     ),
-                    Expanded(
-                      child: visible.isEmpty
-                          ? _NoMatches(filter: _filter)
-                          : RefreshIndicator(
-                              color: AppTheme.orange,
-                              onRefresh: () =>
-                                  ref.read(cardsProvider.notifier).loadCards(),
-                              child: GridView.builder(
-                                controller: _scrollController,
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding:
-                                    const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  mainAxisSpacing: 14,
-                                  crossAxisSpacing: 14,
-                                  childAspectRatio: 0.74,
-                                ),
-                                itemCount: visible.length +
-                                    (cards.isLoadingMore ? 2 : 0),
-                                itemBuilder: (ctx, i) {
-                                  if (i >= visible.length) {
-                                    return _ShimmerCardItem();
-                                  }
-                                  final card = visible[i];
-                                  return _CardItem(
-                                    key: ValueKey(card.id),
-                                    card: card,
-                                    index: i,
-                                    onTap: () =>
-                                        context.push('/card/${card.digipin}'),
-                                    onFavorite: () => _toggleFavorite(card),
-                                    onMenu: () => _showActions(card),
-                                  );
-                                },
-                              ),
-                            ),
-                    ),
+                    Expanded(child: list()),
                   ],
                 ),
     );
@@ -561,6 +570,34 @@ class _NoMatches extends StatelessWidget {
             ? 'No favorites yet — tap the star on a card.'
             : 'No cards match your search.',
         style: GoogleFonts.outfit(color: AppTheme.mutedColor(context)),
+      ),
+    );
+  }
+}
+
+class _ErrorRetry extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ErrorRetry({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_rounded,
+                size: 44, color: AppTheme.mutedColor(context)),
+            const SizedBox(height: 12),
+            Text(message,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(color: AppTheme.textSecColor(context))),
+            const SizedBox(height: 16),
+            OutlinedButton(onPressed: onRetry, child: const Text('Try again')),
+          ],
+        ),
       ),
     );
   }

@@ -107,6 +107,20 @@ class AuthRepository {
     return AppUser.fromJson(data['user'] as Map<String, dynamic>);
   }
 
+  /// Permanently delete the account and everything in it (cards, photos,
+  /// avatar). The server requires the current [password].
+  Future<void> deleteAccount(String password) async {
+    final res = await ApiHttp.delete(
+      _base.replace(path: AppConstants.meEndpoint),
+      headers: await _authHeaders(),
+      body: jsonEncode({'password': password}),
+    );
+    if (res.statusCode != 200) {
+      throw AuthException(ApiHttp.errorMessage(res, 'Could not delete your account.'));
+    }
+    await TokenStorage.clear();
+  }
+
   /// Logout — clears local token.
   Future<void> logout() async {
     await TokenStorage.clear();

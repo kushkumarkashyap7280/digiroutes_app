@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -9,7 +8,8 @@ import '../../core/routing_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../logic/digipin.dart';
 import '../../logic/geo.dart';
-import '../../logic/providers.dart';
+import '../../data/models/address_card.dart';
+import '../../data/repositories/cards_repository.dart';
 import '../../logic/qr_link.dart';
 
 /// Lets the user choose a start/end point. Returns a [GeoPlace] or null.
@@ -27,15 +27,15 @@ Future<GeoPlace?> showPointPicker(BuildContext context, {required String title})
   );
 }
 
-class _PickerSheet extends ConsumerStatefulWidget {
+class _PickerSheet extends StatefulWidget {
   final String title;
   const _PickerSheet({required this.title});
 
   @override
-  ConsumerState<_PickerSheet> createState() => _PickerSheetState();
+  State<_PickerSheet> createState() => _PickerSheetState();
 }
 
-class _PickerSheetState extends ConsumerState<_PickerSheet> {
+class _PickerSheetState extends State<_PickerSheet> {
   final _ctrl = TextEditingController();
   Timer? _debounce;
   GeoPlace? _direct; // a DIGIPIN / coordinates the text resolves to
@@ -44,13 +44,43 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
   bool _locating = false;
   String? _message;
 
+  // Saved cards: own paginated list so it isn't tied to the Cards tab filters.
+  final _repo = CardsRepository();
+  List<AddressCard> _saved = const [];
+  String? _savedCursor;
+  bool _savedHasMore = false;
+  bool _savedLoading = false;
+  int _savedRequest = 0;
+
   @override
   void initState() {
     super.initState();
-    final s = ref.read(cardsProvider);
-    if (s.cards.isEmpty && !s.isLoading) {
-      WidgetsBinding.instance.addPostFrameCallback(
-          (_) => ref.read(cardsProvider.notifier).loadCards());
+    _loadSaved(reset: true);
+  }
+
+  /// Loads the first (reset) or next page of saved cards. While the user is
+  /// typing, the text also filters the saved cards on the server.
+  Future<void> _loadSaved({bool reset = false}) async {
+    if (_savedLoading && !reset) return;
+    final id = ++_savedRequest;
+    final q = _ctrl.text.trim().length >= 2 ? _ctrl.text.trim() : '';
+    setState(() => _savedLoading = true);
+    try {
+      final page = await _repo.getCards(
+        limit: 8,
+        q: q,
+        cursor: reset ? null : _savedCursor,
+      );
+      if (!mounted || id != _savedRequest) return;
+      setState(() {
+        _saved = reset ? page.cards : [..._saved, ...page.cards];
+        _savedCursor = page.nextCursor;
+        _savedHasMore = page.hasMore;
+      });
+    } catch (_) {
+      // Saved cards are a convenience here; place/DIGIPIN input still works.
+    } finally {
+      if (mounted && id == _savedRequest) setState(() => _savedLoading = false);
     }
   }
 
@@ -72,6 +102,9 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
 
   void _onChanged(String text) {
     _debounce?.cancel();
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _ctrl.text == text) _loadSaved(reset: true);
+    });
     setState(() {
       _direct = null;
       _results = const [];
@@ -139,7 +172,7 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final cards = ref.watch(cardsProvider).cards;
+    final cards = _saved;
     final inset = MediaQuery.of(context).viewInsets.bottom;
 
     Widget tile(IconData icon, String title, String sub, VoidCallback? onTap,
@@ -219,7 +252,7 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
               'Camera, or a QR image from your gallery', _scan),
           if (cards.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Text('SAVED CARDS',
+            Text(_ctrl.text.trim().length >= 2 ? 'MATCHING SAVED CARDS' : 'SAVED CARDS',
                 style: GoogleFonts.outfit(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
@@ -235,6 +268,20 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
                   final p = _placeFromPin(c.digipin, label: c.title);
                   if (p != null) Navigator.pop(context, p);
                 },
+              ),
+            if (_savedHasMore)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _savedLoading ? null : () => _loadSaved(),
+                  icon: _savedLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(LucideIcons.chevronDown, size: 18),
+                  label: const Text('Show more'),
+                ),
               ),
           ],
           if (RoutingService.isConfigured)

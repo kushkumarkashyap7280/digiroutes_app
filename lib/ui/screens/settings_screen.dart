@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/update_checker.dart';
 import '../../core/widgets/backdrop.dart';
 import '../../logic/providers.dart';
+import '../widgets/delete_account.dart';
 import '../widgets/logout.dart';
 import '../widgets/user_avatar.dart';
 
@@ -184,8 +185,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       // ── Session ────────────────────────────────────────────────────
       _Group(
-        label: 'Session',
+        label: 'Session & data',
         children: [
+          _ActionRow(
+            icon: LucideIcons.userX,
+            title: 'Delete account',
+            danger: true,
+            onTap: () => confirmAndDeleteAccount(context, ref),
+          ),
+          const Divider(height: 1, indent: 58),
           _ActionRow(
             icon: LucideIcons.logOut,
             title: 'Log out',
