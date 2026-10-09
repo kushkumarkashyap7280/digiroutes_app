@@ -72,6 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.matchedLocation;
       final isAuthPath = path == '/login' || path == '/signup';
       final isPublicPath = path.startsWith('/card/') ||
+          path.startsWith('/c/') ||
           path.startsWith('/digipin/') ||
           path == '/splash' ||
           path == '/onboarding';
@@ -148,6 +149,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/edit',
         pageBuilder: (_, state) => _slidePage(
             state, CreateCardScreen(existing: state.extra as AddressCard)),
+      ),
+      // Private share link (works signed-out): https://…/c/<token>
+      GoRoute(
+        path: '/c/:token',
+        pageBuilder: (_, state) => _slidePage(
+          state,
+          CardDetailScreen(token: state.pathParameters['token']!),
+        ),
+      ),
+      // Own card, opened from the list (the full card travels in `extra`).
+      GoRoute(
+        path: '/my/:id',
+        pageBuilder: (_, state) => _slidePage(
+          state,
+          CardDetailScreen(
+            cardId: state.pathParameters['id']!,
+            initial: state.extra is AddressCard ? state.extra as AddressCard : null,
+          ),
+        ),
       ),
       GoRoute(
         path: '/card/:digipin',

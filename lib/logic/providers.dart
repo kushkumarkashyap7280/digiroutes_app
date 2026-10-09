@@ -349,6 +349,26 @@ class CardsNotifier extends StateNotifier<CardsState> {
     return card;
   }
 
+  /// Changes sharing settings (on/off, expiry, hide phone, reset link) and
+  /// returns the updated card (which carries the new token after a reset).
+  Future<AddressCard> updateSharing(
+    String id, {
+    bool? sharingEnabled,
+    bool? hidePhone,
+    String? shareExpiry,
+    bool resetShareLink = false,
+  }) async {
+    final card = await _repo.updateCard(
+      id,
+      sharingEnabled: sharingEnabled,
+      hidePhone: hidePhone,
+      shareExpiry: shareExpiry,
+      resetShareLink: resetShareLink,
+    );
+    _replace(card);
+    return card;
+  }
+
   /// Optimistically flips the favorite flag; rolls back if the request fails.
   Future<bool> toggleFavorite(AddressCard card) async {
     final next = !card.isFavorite;

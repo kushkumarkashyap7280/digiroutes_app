@@ -11,6 +11,14 @@ class AddressCard {
   final String category; // '' or home | work | shop | family | other
   final String deliveryNote; // instructions for whoever is visiting
   final String contactPhone; // digits with optional +, e.g. +919876543210
+
+  // ── Sharing (owner view only; absent on cards seen through a share link) ──
+  final String shareToken; // random id used in https://…/c/<token> links
+  final bool sharingEnabled; // false = link is switched off, card is private
+  final DateTime? shareExpiresAt; // link stops working after this time
+  final bool hidePhone; // omit the phone from the shared view
+  final bool legacyPublic; // old DIGIPIN-based link still works until reset
+  final int viewCount; // times the shared link was opened
   final DateTime createdAt;
 
   const AddressCard({
@@ -25,6 +33,12 @@ class AddressCard {
     this.category = '',
     this.deliveryNote = '',
     this.contactPhone = '',
+    this.shareToken = '',
+    this.sharingEnabled = true,
+    this.shareExpiresAt,
+    this.hidePhone = false,
+    this.legacyPublic = false,
+    this.viewCount = 0,
     required this.createdAt,
   });
 
@@ -41,6 +55,14 @@ class AddressCard {
       category: json['category'] as String? ?? '',
       deliveryNote: json['deliveryNote'] as String? ?? '',
       contactPhone: json['contactPhone'] as String? ?? '',
+      shareToken: json['shareToken'] as String? ?? '',
+      sharingEnabled: json['sharingEnabled'] as bool? ?? true,
+      shareExpiresAt: json['shareExpiresAt'] != null
+          ? DateTime.tryParse(json['shareExpiresAt'] as String)
+          : null,
+      hidePhone: json['hidePhone'] as bool? ?? false,
+      legacyPublic: json['legacyPublic'] as bool? ?? false,
+      viewCount: (json['viewCount'] as num?)?.toInt() ?? 0,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
           : DateTime.now(),
@@ -59,6 +81,12 @@ class AddressCard {
         'category': category,
         'deliveryNote': deliveryNote,
         'contactPhone': contactPhone,
+        'shareToken': shareToken,
+        'sharingEnabled': sharingEnabled,
+        'shareExpiresAt': shareExpiresAt?.toIso8601String(),
+        'hidePhone': hidePhone,
+        'legacyPublic': legacyPublic,
+        'viewCount': viewCount,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -71,6 +99,8 @@ class AddressCard {
     String? category,
     String? deliveryNote,
     String? contactPhone,
+    bool? sharingEnabled,
+    bool? hidePhone,
   }) =>
       AddressCard(
         id: id,
@@ -84,11 +114,25 @@ class AddressCard {
         category: category ?? this.category,
         deliveryNote: deliveryNote ?? this.deliveryNote,
         contactPhone: contactPhone ?? this.contactPhone,
+        shareToken: shareToken,
+        sharingEnabled: sharingEnabled ?? this.sharingEnabled,
+        shareExpiresAt: shareExpiresAt,
+        hidePhone: hidePhone ?? this.hidePhone,
+        legacyPublic: legacyPublic,
+        viewCount: viewCount,
         createdAt: createdAt,
       );
 
-  /// Returns the public share URL for this card.
-  String get shareUrl => 'https://digiroutes.vercel.app/card/$digipin';
+  /// The link to hand out. Uses the private token when the card has one; the
+  /// DIGIPIN-based form is only a fallback for cards without a token yet.
+  String get shareUrl => shareToken.isNotEmpty
+      ? 'https://digiroutes.vercel.app/c/$shareToken'
+      : 'https://digiroutes.vercel.app/card/$digipin';
+
+  /// Link is switched on and not expired (owner view).
+  bool get isShareActive =>
+      sharingEnabled &&
+      (shareExpiresAt == null || shareExpiresAt!.isAfter(DateTime.now()));
 
   /// Digits only, for wa.me links (no '+').
   String get whatsappNumber => contactPhone.replaceAll(RegExp(r'[^0-9]'), '');

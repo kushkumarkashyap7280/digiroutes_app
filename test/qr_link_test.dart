@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final pin = getDigiPin(28.6139, 77.2090); // New Delhi
+  privateLinkTests();
 
   group('digipinFromScan', () {
     test('accepts DigiRoutes card and digipin links', () {
@@ -84,6 +85,63 @@ void main() {
       final t2 = cardShareText(bare);
       expect(t2, isNot(contains('📝')));
       expect(t2, isNot(contains('📞')));
+    });
+  });
+}
+
+void privateLinkTests() {
+  const token = 'AbCdEfGhIjKlMnOpQrStUv'; // 22 URL-safe chars
+
+  group('shareTokenFromScan', () {
+    test('accepts a private card link', () {
+      expect(shareTokenFromScan('https://digiroutes.vercel.app/c/$token'), token);
+      expect(shareTokenFromScan('  https://digiroutes.vercel.app/c/$token  '), token);
+    });
+
+    test('rejects other hosts, paths and malformed tokens', () {
+      expect(shareTokenFromScan('https://evil.example.com/c/$token'), isNull);
+      expect(shareTokenFromScan('https://digiroutes.vercel.app/c/short'), isNull);
+      expect(shareTokenFromScan('https://digiroutes.vercel.app/c/${token}x'), isNull);
+      expect(shareTokenFromScan('https://digiroutes.vercel.app/card/$token'), isNull);
+      expect(shareTokenFromScan(token), isNull); // a bare token isn't a link
+    });
+
+    test('a private link is not mistaken for a DIGIPIN', () {
+      expect(digipinFromScan('https://digiroutes.vercel.app/c/$token'), isNull);
+    });
+  });
+
+  group('AddressCard sharing fields', () {
+    test('shareUrl prefers the private token, falls back to the legacy form', () {
+      final withToken = AddressCard.fromJson(
+          {'_id': '1', 'digipin': 'ABC', 'shareToken': token});
+      final legacy = AddressCard.fromJson({'_id': '2', 'digipin': 'ABC'});
+      expect(withToken.shareUrl, 'https://digiroutes.vercel.app/c/$token');
+      expect(legacy.shareUrl, 'https://digiroutes.vercel.app/card/ABC');
+    });
+
+    test('isShareActive follows the on/off switch and the expiry', () {
+      final past = DateTime.now().subtract(const Duration(hours: 1)).toIso8601String();
+      final future = DateTime.now().add(const Duration(hours: 1)).toIso8601String();
+      AddressCard c(Map<String, dynamic> extra) =>
+          AddressCard.fromJson({'_id': '1', 'digipin': 'A', ...extra});
+      expect(c({}).isShareActive, isTrue);
+      expect(c({'sharingEnabled': false}).isShareActive, isFalse);
+      expect(c({'shareExpiresAt': past}).isShareActive, isFalse);
+      expect(c({'shareExpiresAt': future}).isShareActive, isTrue);
+    });
+
+    test('share text omits the phone when it is hidden', () {
+      final shown = AddressCard.fromJson({
+        '_id': '1', 'digipin': getDigiPin(28.6139, 77.2090), 'title': 'T',
+        'contactPhone': '+919876543210',
+      });
+      final hidden = AddressCard.fromJson({
+        '_id': '1', 'digipin': getDigiPin(28.6139, 77.2090), 'title': 'T',
+        'contactPhone': '+919876543210', 'hidePhone': true,
+      });
+      expect(cardShareText(shown), contains('+919876543210'));
+      expect(cardShareText(hidden), isNot(contains('+919876543210')));
     });
   });
 }

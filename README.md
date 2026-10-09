@@ -39,6 +39,14 @@ find the right door.
 - Long-press a card for quick actions (favorite, edit, share, QR, delete).
 
 ### Sharing & opening
+- **Private share links:** every card has its own random link,
+  `https://digiroutes.vercel.app/c/<token>`, and the QR code contains that link.
+  A DIGIPIN can be computed by anyone from a location, so it **never** unlocks
+  a card's photos, phone or notes — only the link does. On each card the owner
+  can **switch sharing off**, **reset the link** (old links and QR codes stop
+  working), set an **expiry** (24 h / 7 days / never), **hide the phone number**
+  and see how many times the link was opened. Links that are off, expired or
+  reset all show the same "This link isn't available" screen.
 - **QR code per card** — shown in a sheet, shareable as an image or copyable
   as a link. The code contains the card's web link.
 - **Scan tab — three ways to open a card from a code:**
@@ -50,7 +58,7 @@ find the right door.
 - **Call / WhatsApp** buttons on a card (when a phone number is set), plus
   **Navigate with Google Maps**.
 - **Links open in the app** when it's installed (Android App Links for
-  `https://digiroutes.vercel.app/card/<PIN>` and `/digipin/<PIN>`); otherwise
+  `https://digiroutes.vercel.app/c/<token>`, `/card/<PIN>` and `/digipin/<PIN>`); otherwise
   they open on the website, which also offers an "Open in app" banner on
   Android.
 
@@ -177,8 +185,10 @@ generation is used.
 | POST | `/api/auth/signup` · `/login` | Create account / sign in → JWT (rate-limited) |
 | GET · PUT · DELETE | `/api/auth/me` | Current user · update name / avatar · delete account (password) |
 | GET · POST | `/api/cards` | List own cards (cursor pagination, `q`, `category`, `favorite`; first page returns `total` + facets) · create |
-| PUT · DELETE | `/api/cards/:id` | Update (incl. favorite, category, note, phone) · delete |
-| GET | `/api/cards/digipin/:pin` | **Public** card lookup used by shared links / QR |
+| PUT · DELETE | `/api/cards/:id` | Update (favorite, category, note, phone, **sharing**: on/off, expiry, hide phone, reset link) · delete |
+| GET | `/api/cards/shared/:token` | **Public** card lookup for a private share link (404 when off / expired / reset) |
+| GET | `/api/cards/:id` | Own card incl. sharing settings |
+| GET | `/api/cards/digipin/:pin` | Owner's own card, or an older card until its link is reset — never card data for strangers |
 | POST | `/api/upload/sign` | Signed Cloudinary upload parameters |
 | POST | `/api/upload/cleanup` | Discard uploads whose save failed (only unused images in the caller's folder) |
 
@@ -250,6 +260,8 @@ add the new fingerprint there.
 - Real home-screen **widget** (launcher shortcuts exist; a widget needs native code)
 - Receive a QR image via Android's **Share → DigiRoutes** (today: pick it from the Scan tab)
 - Offline cache of cards and photos
-- Link analytics, expiring / private links, multiple captions per photo
+- Admin panel (users, analytics, moderation) on the web
+- Signed, short-lived photo URLs (today photo URLs are unguessable but not signed)
+- Multiple captions per photo
 - Change the package name from `com.example.digiroutes_app` before a Play Store release
 - Per-ABI APKs to shrink the download (~75 MB universal today)

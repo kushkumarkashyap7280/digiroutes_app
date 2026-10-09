@@ -72,7 +72,36 @@ class CardsRepository {
     } catch (_) {/* nothing more we can do; never mask the original error */}
   }
 
-  /// Fetch a single public card by [digipin].
+  /// One of the signed-in user's own cards, with its sharing settings.
+  Future<AddressCard?> getOwnCard(String id) async {
+    final res = await ApiHttp.get(
+      _base.replace(path: '${AppConstants.cardsEndpoint}/$id'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode == 404 || res.statusCode == 401) return null;
+    if (res.statusCode != 200) {
+      throw CardsException(ApiHttp.errorMessage(res, 'Failed to load card.'));
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return AddressCard.fromJson(data['card'] as Map<String, dynamic>);
+  }
+
+  /// The card behind a private share link (no login needed). Null when the
+  /// link is switched off, expired, reset or unknown.
+  Future<AddressCard?> getSharedCard(String token) async {
+    final res = await ApiHttp.get(
+      _base.replace(path: '${AppConstants.cardsEndpoint}/shared/$token'),
+    );
+    if (res.statusCode == 404) return null;
+    if (res.statusCode != 200) {
+      throw CardsException(ApiHttp.errorMessage(res, 'Failed to load card.'));
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return AddressCard.fromJson(data['card'] as Map<String, dynamic>);
+  }
+
+  /// Fetch a single card by [digipin]. The server only returns it to its
+  /// signed-in owner, or for older cards whose link hasn't been reset yet.
   Future<AddressCard?> getCardByDigipin(String digipin) async {
     final res = await ApiHttp.get(
       _base.replace(path: '${AppConstants.cardsEndpoint}/digipin/$digipin'),
@@ -143,6 +172,10 @@ class CardsRepository {
     String? category,
     String? deliveryNote,
     String? contactPhone,
+    bool? sharingEnabled,
+    bool? hidePhone,
+    String? shareExpiry, // 'none' | '24h' | '7d'
+    bool resetShareLink = false,
   }) async {
     final headers = await _authHeaders();
     final res = await ApiHttp.put(
@@ -157,6 +190,10 @@ class CardsRepository {
         if (category != null) 'category': category,
         if (deliveryNote != null) 'deliveryNote': deliveryNote,
         if (contactPhone != null) 'contactPhone': contactPhone,
+        if (sharingEnabled != null) 'sharingEnabled': sharingEnabled,
+        if (hidePhone != null) 'hidePhone': hidePhone,
+        if (shareExpiry != null) 'shareExpiry': shareExpiry,
+        if (resetShareLink) 'resetShareLink': true,
       }),
     );
     if (res.statusCode == 401)

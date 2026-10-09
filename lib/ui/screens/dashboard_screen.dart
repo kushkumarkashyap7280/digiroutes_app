@@ -99,7 +99,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               key: ValueKey(card.id),
               card: card,
               index: i % 12, // stagger only within a page
-              onTap: () => context.push('/card/${card.digipin}'),
+              onTap: () => context.push('/my/${card.id}', extra: card),
               onFavorite: () => _toggleFavorite(card),
               onMenu: () => _showActions(card),
             );
@@ -147,6 +147,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ],
                 ),
     );
+  }
+
+  /// Sharing switched off or expired: tell the owner how to fix it instead of
+  /// handing out a dead link.
+  bool _sharingBlocked(AddressCard card) {
+    if (card.isShareActive) return false;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(
+            'Link sharing is ${card.sharingEnabled ? 'expired' : 'off'} for "${card.title}". '
+            'Open the card and adjust Sharing to share it.',
+            style: GoogleFonts.outfit()),
+      ));
+    return true;
   }
 
   Future<void> _toggleFavorite(AddressCard card) async {
@@ -221,8 +236,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 'edit':
         await context.push('/edit', extra: card);
       case 'share':
+        if (_sharingBlocked(card)) return;
         await shareCardRich(card);
       case 'qr':
+        if (_sharingBlocked(card)) return;
         await showCardQrSheet(context, card);
       case 'delete':
         await _confirmDelete(card);

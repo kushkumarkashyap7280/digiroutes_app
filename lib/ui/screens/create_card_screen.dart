@@ -561,7 +561,7 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
 
       if (card != null && mounted) {
         AppSound.tap(ref);
-        context.pushReplacement('/card/${card.digipin}');
+        context.pushReplacement('/my/${card.id}', extra: card);
       } else {
         setState(() => _error = 'Failed to save card. Please try again.');
       }
