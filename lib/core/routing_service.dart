@@ -42,7 +42,10 @@ class RoutingService {
   static const _key = String.fromEnvironment('ORS_API_KEY');
   static bool get isConfigured => _key.isNotEmpty;
 
-  static const _host = 'https://api.openrouteservice.org';
+  // OpenRouteService moved from api.openrouteservice.org (being shut off) to
+  // api.heigit.org. No trailing slashes. Same API key.
+  static const _directionsBase = 'https://api.heigit.org/openrouteservice/v2/directions';
+  static const _geocodeBase = 'https://api.heigit.org/pelias/v1/search';
 
   static void _requireKey() {
     if (!isConfigured) {
@@ -55,7 +58,7 @@ class RoutingService {
       GeoPoint from, GeoPoint to, RouteMode mode) async {
     _requireKey();
     final res = await ApiHttp.post(
-      Uri.parse('$_host/v2/directions/${mode.profile}/geojson'),
+      Uri.parse('$_directionsBase/${mode.profile}/geojson'),
       headers: {'Authorization': _key, 'Content-Type': 'application/json'},
       body: jsonEncode({
         'coordinates': [
@@ -72,7 +75,7 @@ class RoutingService {
     _requireKey();
     final q = text.trim();
     if (q.length < 3) return const [];
-    final res = await ApiHttp.get(Uri.parse('$_host/geocode/search').replace(
+    final res = await ApiHttp.get(Uri.parse(_geocodeBase).replace(
       queryParameters: {
         'api_key': _key,
         'text': q,
