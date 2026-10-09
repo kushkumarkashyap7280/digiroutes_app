@@ -237,6 +237,16 @@ class _PickerSheetState extends ConsumerState<_PickerSheet> {
                 },
               ),
           ],
+          if (RoutingService.isConfigured)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Text(
+                'Place search by openrouteservice.org (HeiGIT) · © OpenStreetMap contributors',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                    fontSize: 11, color: AppTheme.mutedColor(context)),
+              ),
+            ),
         ],
       ),
     );

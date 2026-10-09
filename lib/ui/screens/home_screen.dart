@@ -14,7 +14,6 @@ import '../../core/update_checker.dart';
 import '../../core/widgets/glass.dart';
 import '../../logic/digipin.dart';
 import '../../logic/providers.dart';
-import '../../core/widgets/brand_mark.dart';
 import 'package:go_router/go_router.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -64,17 +63,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Column(
-                  children: [
-                    _TopBar(
-                      onMenu: () => ref
-                          .read(scaffoldKeyProvider)
-                          .currentState
-                          ?.openDrawer(),
-                    ),
-                    const SizedBox(height: 10),
-                    _WherePill(onTap: () => context.push('/route')),
-                  ],
+                child: _SearchBar(
+                  onMenu: () =>
+                      ref.read(scaffoldKeyProvider).currentState?.openDrawer(),
+                  onSearch: () => context.push('/route'),
                 ),
               ),
             ),
@@ -208,67 +200,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-// ─── "Where to?" entry ────────────────────────────────────────────────────────
+// ─── Single top bar: menu + "Where to?" ───────────────────────────────────────
 
-class _WherePill extends StatelessWidget {
-  final VoidCallback onTap;
-  const _WherePill({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: GlassContainer(
-        radius: 20,
-        frosted: false,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            const Icon(Icons.search_rounded, color: AppTheme.orange, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text('Where do you want to go?',
-                  style: GoogleFonts.outfit(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecColor(context))),
-            ),
-            const Icon(Icons.alt_route_rounded,
-                color: AppTheme.orange, size: 22),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Floating glass top bar ────────────────────────────────────────────────────
-
-class _TopBar extends StatelessWidget {
+/// One floating pill, like Google Maps: menu on the left, the whole rest of the
+/// bar opens the route planner.
+class _SearchBar extends StatelessWidget {
   final VoidCallback onMenu;
-  const _TopBar({required this.onMenu});
+  final VoidCallback onSearch;
+  const _SearchBar({required this.onMenu, required this.onSearch});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return GlassContainer(
-      radius: 20,
+      radius: 28,
       frosted: false,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: Row(
         children: [
           _GlassIconButton(icon: Icons.menu_rounded, onPressed: onMenu),
-          const SizedBox(width: 10),
-          const BrandMark(size: 30, radius: 9),
-          const SizedBox(width: 10),
           Expanded(
-            child: Text('DigiRoutes',
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: theme.textTheme.bodyLarge?.color,
-                )),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onSearch,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('Where do you want to go?',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textSecColor(context))),
+                    ),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      margin: const EdgeInsets.only(left: 8),
+                      decoration: const BoxDecoration(
+                        gradient: AppTheme.accentGradient,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.alt_route_rounded,
+                          color: Colors.white, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),

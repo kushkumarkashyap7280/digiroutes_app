@@ -275,6 +275,11 @@ class _RouteScreenState extends State<RouteScreen> {
                   Uri.parse('https://www.openstreetmap.org/copyright'),
                   mode: LaunchMode.externalApplication),
             ),
+            TextSourceAttribution(
+              'openrouteservice.org by HeiGIT',
+              onTap: () => launchUrl(Uri.parse('https://openrouteservice.org'),
+                  mode: LaunchMode.externalApplication),
+            ),
           ],
         ),
       ],
