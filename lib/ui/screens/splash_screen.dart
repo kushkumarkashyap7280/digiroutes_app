@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/backdrop.dart';
+import '../../core/widgets/brand_mark.dart';
 import '../../core/constants.dart';
 import '../../data/local/token_storage.dart';
 
@@ -39,23 +40,7 @@ class _SplashScreenState extends State<SplashScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // Logo / Icon
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  gradient: AppTheme.accentGradient,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.orangeGlow,
-                      blurRadius: 40,
-                      spreadRadius: 4,
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.location_on_rounded,
-                    color: Colors.white, size: 52),
-              )
+              const BrandMark(size: 96, radius: 24, glow: true)
                   .animate()
                   .scale(duration: 600.ms, curve: Curves.elasticOut)
                   .fadeIn(duration: 400.ms),

@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
 import '../../core/widgets/backdrop.dart';
 import '../../logic/providers.dart';
+import '../../core/widgets/brand_mark.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -67,16 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           // Logo & Heading
                           Row(
                             children: [
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  gradient: AppTheme.accentGradient,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(Icons.location_on_rounded,
-                                    color: Colors.white, size: 26),
-                              ),
+                              const BrandMark(size: 48, radius: 12),
                               const SizedBox(width: 12),
                               Text('DigiRoutes',
                                   style: GoogleFonts.outfit(

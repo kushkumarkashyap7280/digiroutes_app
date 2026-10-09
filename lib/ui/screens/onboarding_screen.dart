@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/backdrop.dart';
+import '../../core/widgets/brand_mark.dart';
 
 class _Slide {
   final String tag;
@@ -88,16 +89,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
                 child: Row(
                   children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        gradient: AppTheme.accentGradient,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.location_on_rounded,
-                          color: Colors.white, size: 20),
-                    ),
+                    const BrandMark(size: 34, radius: 10),
                     const SizedBox(width: 10),
                     Text('DigiRoutes',
                         style: GoogleFonts.outfit(

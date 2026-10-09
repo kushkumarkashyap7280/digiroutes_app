@@ -1,7 +1,7 @@
 name: digiroutes_app
 description: "DigiRoute — Share your exact doorstep location with a 10-character DIGIPIN."
 publish_to: 'none'
-version: 1.2.0+4
+version: 1.2.1+5
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
