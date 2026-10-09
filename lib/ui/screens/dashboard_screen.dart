@@ -10,6 +10,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../core/sound.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/address_card.dart';
+import '../../data/repositories/cards_repository.dart';
 import '../../logic/providers.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -255,10 +256,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           content: Text('Deleted "${card.title}"', style: GoogleFonts.outfit()),
           duration: const Duration(seconds: 2),
         ));
-      } catch (_) {
+      } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to delete card.', style: GoogleFonts.outfit()),
+          content: Text(e is CardsException ? e.message : 'Failed to delete card.',
+              style: GoogleFonts.outfit()),
           backgroundColor: AppTheme.danger,
         ));
       }

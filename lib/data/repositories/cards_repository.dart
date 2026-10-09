@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../../core/api_http.dart';
 import '../models/address_card.dart';
 import '../local/token_storage.dart';
 import '../../core/constants.dart';
@@ -36,7 +37,7 @@ class CardsRepository {
         'limit': '$limit',
       },
     );
-    final res = await http.get(uri, headers: headers);
+    final res = await ApiHttp.get(uri, headers: headers);
 
     if (res.statusCode == 401)
       throw const CardsException('Please log in first.');
@@ -56,7 +57,7 @@ class CardsRepository {
 
   /// Fetch a single public card by [digipin].
   Future<AddressCard?> getCardByDigipin(String digipin) async {
-    final res = await http.get(
+    final res = await ApiHttp.get(
       _base.replace(path: '${AppConstants.cardsEndpoint}/digipin/$digipin'),
     );
     if (res.statusCode == 404) return null;
@@ -75,7 +76,7 @@ class CardsRepository {
     List<String> photoIds = const [],
   }) async {
     final headers = await _authHeaders();
-    final res = await http.post(
+    final res = await ApiHttp.post(
       _base.replace(path: AppConstants.cardsEndpoint),
       headers: headers,
       body: jsonEncode({
@@ -90,9 +91,7 @@ class CardsRepository {
     if (res.statusCode == 401)
       throw const CardsException('Please log in first.');
     if (res.statusCode != 201) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      throw CardsException(
-          body['error'] as String? ?? 'Failed to create card.');
+      throw CardsException(ApiHttp.errorMessage(res, 'Failed to create card.'));
     }
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -102,7 +101,7 @@ class CardsRepository {
   /// Delete a card by [id].
   Future<void> deleteCard(String id) async {
     final headers = await _authHeaders();
-    final res = await http.delete(
+    final res = await ApiHttp.delete(
       _base.replace(path: '${AppConstants.cardsEndpoint}/$id'),
       headers: headers,
     );
@@ -120,7 +119,7 @@ class CardsRepository {
     bool? isFavorite,
   }) async {
     final headers = await _authHeaders();
-    final res = await http.put(
+    final res = await ApiHttp.put(
       _base.replace(path: '${AppConstants.cardsEndpoint}/$id'),
       headers: headers,
       body: jsonEncode({
@@ -134,9 +133,7 @@ class CardsRepository {
     if (res.statusCode == 401)
       throw const CardsException('Please log in first.');
     if (res.statusCode != 200) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      throw CardsException(
-          body['error'] as String? ?? 'Failed to update card.');
+      throw CardsException(ApiHttp.errorMessage(res, 'Failed to update card.'));
     }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return AddressCard.fromJson(data['card'] as Map<String, dynamic>);
@@ -152,7 +149,7 @@ class CardsRepository {
       throw const CardsException('Image is larger than 4MB.');
     }
 
-    final signRes = await http.post(
+    final signRes = await ApiHttp.post(
       _base.replace(path: '${AppConstants.uploadEndpoint}/sign'),
       headers: await _authHeaders(),
     );
@@ -177,9 +174,9 @@ class CardsRepository {
       ..fields['folder'] = sign['folder'] as String
       ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
 
-    final res = await http.Response.fromStream(await request.send());
+    final res = await ApiHttp.sendMultipart(request);
     if (res.statusCode != 200)
-      throw const CardsException('Image upload failed.');
+      throw const CardsException('Image upload failed. Check your connection and try again.');
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return (
       url: data['secure_url'] as String,

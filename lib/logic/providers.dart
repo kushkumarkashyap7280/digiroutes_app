@@ -51,17 +51,26 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> _init() async {
     state = state.copyWith(isLoading: true);
-    final hasToken = await TokenStorage.hasToken();
-    if (hasToken) {
-      try {
-        final user = await _repo.getMe();
-        state = AuthState(user: user);
-      } catch (_) {
-        await TokenStorage.clear();
-        state = const AuthState();
-      }
-    } else {
+    if (!await TokenStorage.hasToken()) {
       state = const AuthState();
+      return;
+    }
+    try {
+      final user = await _repo.getMe();
+      if (user == null) {
+        // The server rejected the token (expired / invalid): sign out.
+        await TokenStorage.clear();
+        await UserCache.clear();
+        state = const AuthState();
+      } else {
+        await UserCache.save(user);
+        state = AuthState(user: user);
+      }
+    } catch (_) {
+      // Offline or the server hiccuped: keep the token and stay signed in
+      // with the last known profile instead of kicking the user out.
+      final cached = await UserCache.load();
+      state = cached != null ? AuthState(user: cached) : const AuthState();
     }
   }
 
@@ -69,6 +78,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final user = await _repo.login(email, password);
+      await UserCache.save(user);
       state = AuthState(user: user);
       return true;
     } on AuthException catch (e) {
@@ -84,6 +94,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final user = await _repo.signup(name, email, password);
+      await UserCache.save(user);
       state = AuthState(user: user);
       return true;
     } on AuthException catch (e) {
@@ -97,6 +108,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Future<void> logout() async {
     await _repo.logout();
+    await UserCache.clear();
     state = const AuthState();
   }
 
@@ -111,6 +123,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       avatarUrl: avatarUrl,
       avatarId: avatarId,
     );
+    await UserCache.save(user);
     state = state.copyWith(user: user);
   }
 }
@@ -209,8 +222,10 @@ class CardsNotifier extends StateNotifier<CardsState> {
       );
       state = state.copyWith(cards: [card, ...state.cards]);
       return card;
-    } catch (e) {
-      return null;
+    } on CardsException {
+      rethrow; // message is shown to the user by the create screen
+    } catch (_) {
+      throw const CardsException('Could not save the card. Please try again.');
     }
   }
 
