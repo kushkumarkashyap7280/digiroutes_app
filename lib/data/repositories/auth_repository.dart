@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../../core/api_http.dart';
 import '../models/user.dart';
 import '../local/token_storage.dart';
 import '../../core/constants.dart';
@@ -26,15 +26,14 @@ class AuthRepository {
   /// Login with [email] and [password].
   /// Returns [AppUser] and saves the token locally.
   Future<AppUser> login(String email, String password) async {
-    final res = await http.post(
+    final res = await ApiHttp.post(
       _base.replace(path: AppConstants.loginEndpoint),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
 
     if (res.statusCode != 200) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      throw AuthException(body['error'] as String? ?? 'Login failed.');
+      throw AuthException(ApiHttp.errorMessage(res, 'Login failed.'));
     }
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -49,15 +48,14 @@ class AuthRepository {
 
   /// Sign up with [name], [email], and [password].
   Future<AppUser> signup(String name, String email, String password) async {
-    final res = await http.post(
+    final res = await ApiHttp.post(
       _base.replace(path: AppConstants.signupEndpoint),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'name': name, 'email': email, 'password': password}),
     );
 
     if (res.statusCode != 201) {
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      throw AuthException(body['error'] as String? ?? 'Signup failed.');
+      throw AuthException(ApiHttp.errorMessage(res, 'Signup failed.'));
     }
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -72,11 +70,14 @@ class AuthRepository {
   /// Fetch the currently authenticated user.
   Future<AppUser?> getMe() async {
     final headers = await _authHeaders();
-    final res = await http.get(
+    final res = await ApiHttp.get(
       _base.replace(path: AppConstants.meEndpoint),
       headers: headers,
     );
-    if (res.statusCode != 200) return null;
+    if (res.statusCode == 401) return null; // token expired / invalid
+    if (res.statusCode != 200) {
+      throw AuthException(ApiHttp.errorMessage(res, 'Could not load your account.'));
+    }
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final userJson = data['user'] as Map<String, dynamic>? ?? data;
     return AppUser.fromJson(userJson);
@@ -90,7 +91,7 @@ class AuthRepository {
     String? avatarId,
   }) async {
     final headers = await _authHeaders();
-    final res = await http.put(
+    final res = await ApiHttp.put(
       _base.replace(path: AppConstants.meEndpoint),
       headers: headers,
       body: jsonEncode({
@@ -99,10 +100,10 @@ class AuthRepository {
         if (avatarId != null) 'avatarId': avatarId,
       }),
     );
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
-      throw AuthException(data['error'] as String? ?? 'Could not update profile.');
+      throw AuthException(ApiHttp.errorMessage(res, 'Could not update profile.'));
     }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
     return AppUser.fromJson(data['user'] as Map<String, dynamic>);
   }
 

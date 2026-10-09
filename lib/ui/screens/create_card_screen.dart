@@ -466,7 +466,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
         setState(() => _error = 'Failed to save card. Please try again.');
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = e is CardsException
+          ? e.message
+          : 'Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
