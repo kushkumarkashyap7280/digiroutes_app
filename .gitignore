@@ -50,3 +50,6 @@ app.*.map.json
 # Release signing (never commit — CI reconstructs this from a GitHub secret)
 android/key.properties
 android/keystore/
+
+# Local secrets (dart-define file with ORS_API_KEY) — never commit
+env.local.json

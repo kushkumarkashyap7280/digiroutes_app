@@ -56,7 +56,11 @@ jobs:
           EOF
 
       - name: Build Release APK
-        run: flutter build apk --release
+        env:
+          ORS_API_KEY: ${{ secrets.ORS_API_KEY }}
+        # ORS_API_KEY is the free OpenRouteService key used for road routes and
+        # place search; an empty value just disables those (straight-line distance still works).
+        run: flutter build apk --release --dart-define=ORS_API_KEY="$ORS_API_KEY"
 
       - name: Determine Release Tag & APK Name
         id: release_info

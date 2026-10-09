@@ -15,6 +15,7 @@ import '../../core/widgets/glass.dart';
 import '../../logic/digipin.dart';
 import '../../logic/providers.dart';
 import '../../core/widgets/brand_mark.dart';
+import 'package:go_router/go_router.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -63,9 +64,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: _TopBar(
-                  onMenu: () =>
-                      ref.read(scaffoldKeyProvider).currentState?.openDrawer(),
+                child: Column(
+                  children: [
+                    _TopBar(
+                      onMenu: () => ref
+                          .read(scaffoldKeyProvider)
+                          .currentState
+                          ?.openDrawer(),
+                    ),
+                    const SizedBox(height: 10),
+                    _WherePill(onTap: () => context.push('/route')),
+                  ],
                 ),
               ),
             ),
@@ -195,6 +204,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       'My location DIGIPIN: $_currentDigipin\n'
       'View on DigiRoutes: https://digiroutes.vercel.app/card/$_currentDigipin',
       subject: 'My DigiPin Location',
+    );
+  }
+}
+
+// ─── "Where to?" entry ────────────────────────────────────────────────────────
+
+class _WherePill extends StatelessWidget {
+  final VoidCallback onTap;
+  const _WherePill({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: GlassContainer(
+        radius: 20,
+        frosted: false,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, color: AppTheme.orange, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Where do you want to go?',
+                  style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textSecColor(context))),
+            ),
+            const Icon(Icons.alt_route_rounded,
+                color: AppTheme.orange, size: 22),
+          ],
+        ),
+      ),
     );
   }
 }

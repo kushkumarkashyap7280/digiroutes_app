@@ -10,6 +10,7 @@ import '../../ui/screens/signup_screen.dart';
 import '../../ui/screens/home_screen.dart';
 import '../../ui/screens/dashboard_screen.dart';
 import '../../ui/screens/compass_screen.dart';
+import '../../ui/screens/route_screen.dart';
 import '../../ui/screens/scan_screen.dart';
 import '../../ui/screens/create_card_screen.dart';
 import '../../ui/screens/card_detail_screen.dart';
@@ -121,6 +122,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/digipin/:digipin',
         redirect: (_, state) =>
             '/card/${state.pathParameters['digipin']!.toUpperCase()}',
+      ),
+      GoRoute(
+        path: '/route',
+        pageBuilder: (_, st) => _slidePage(st, const RouteScreen()),
+      ),
+      // Scanner used as a picker (returns the scanned DIGIPIN to the caller).
+      GoRoute(
+        path: '/scan-pick',
+        pageBuilder: (_, st) => _slidePage(st, const ScanScreen(pickMode: true)),
       ),
       GoRoute(
         path: '/profile',

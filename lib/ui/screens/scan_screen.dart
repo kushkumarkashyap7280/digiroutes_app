@@ -15,7 +15,10 @@ import '../../logic/qr_link.dart';
 ///  2. pick a screenshot / saved QR image from the gallery,
 ///  3. type or paste a DIGIPIN or DigiRoutes link.
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key});
+  /// When true the screen is pushed as a picker: it returns the scanned
+  /// DIGIPIN to the caller (`context.pop(pin)`) instead of opening the card.
+  final bool pickMode;
+  const ScanScreen({super.key, this.pickMode = false});
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -81,6 +84,10 @@ class _ScanScreenState extends State<ScanScreen> {
     if (_opening) return;
     _opening = true;
     HapticFeedback.mediumImpact();
+    if (widget.pickMode) {
+      if (mounted) context.pop(pin);
+      return;
+    }
     await context.push('/card/$pin');
     _opening = false;
   }
@@ -166,7 +173,7 @@ class _ScanScreenState extends State<ScanScreen> {
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
               child: Column(
                 children: [
-                  Text('Scan a DigiRoutes QR',
+                  Text(widget.pickMode ? 'Scan a point' : 'Scan a DigiRoutes QR',
                       style: GoogleFonts.outfit(
                           color: Colors.white,
                           fontSize: 22,
@@ -184,11 +191,22 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
           ),
 
+          if (widget.pickMode)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: IconButton(
+                  icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
+                  onPressed: () => context.pop(),
+                ),
+              ),
+            ),
+
           // Actions (kept above the floating nav bar)
           Positioned(
             left: 0,
             right: 0,
-            bottom: 112 + bottomInset,
+            bottom: (widget.pickMode ? 36 : 112) + bottomInset,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

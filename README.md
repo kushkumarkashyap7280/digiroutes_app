@@ -48,6 +48,14 @@ find the right door.
   Android.
 
 ### Tools
+- **Where to? (route planner):** a search bar on Home opens a screen where you
+  pick a **start** and a **destination**. Each can be your **current location**,
+  a **saved card**, a **DIGIPIN / DigiRoutes link**, **coordinates** (`28.61, 77.20`),
+  a **QR code** (camera or gallery) or a **place name**. You get the **road route
+  on a map, road distance and travel time** (drive / bike / walk), the
+  **straight-line distance**, and a *Navigate in Google Maps* button. Straight-line
+  distance is computed offline; road routes and place search use the free
+  OpenRouteService API (key required, see below).
 - **Home:** full-screen map, "Get My DIGIPIN" for your current location with
   copy / share / Google Maps link.
 - **Compass:** point-to-location compass for a DIGIPIN or coordinates, paste
@@ -98,6 +106,7 @@ only account items — nothing duplicates the bottom bar.
 | Routing | `go_router` (shell route with 4 tabs, deep links) |
 | Networking | `http` through `ApiHttp` (timeouts + readable errors) |
 | Storage | `flutter_secure_storage` (token), `shared_preferences` (settings, last-known profile) |
+| Maps / routing | `flutter_map` + OpenStreetMap tiles, OpenRouteService (routes, place search) |
 | Images | `image_picker`, `cached_network_image`, Cloudinary signed uploads |
 | QR | `qr_flutter` (generate), `mobile_scanner` (camera + image analysis) |
 | Sharing / launch | `share_plus`, `url_launcher`, `quick_actions` |
@@ -111,6 +120,8 @@ only account items — nothing duplicates the bottom bar.
 lib/
 ├── main.dart                     App root, theme, launcher shortcuts
 ├── core/
+│   ├── routing_service.dart      OpenRouteService: road route + place search (+ parsing)
+│   ├── location.dart             Current GPS position with friendly errors
 │   ├── api_http.dart             HTTP wrapper: timeout, NetworkException, error messages
 │   ├── card_categories.dart      Home / Work / Shop / Family / Other
 │   ├── card_share.dart           Rich share text + photo, QR image share
@@ -127,12 +138,13 @@ lib/
 ├── logic/
 │   ├── providers.dart            Riverpod providers: auth, cards, theme, sound
 │   ├── digipin.dart              DIGIPIN encode/decode (offline)
-│   └── qr_link.dart              QR / pasted text → DIGIPIN parser
+│   ├── qr_link.dart              QR / pasted text → DIGIPIN parser
+│   └── geo.dart                  Haversine distance, lat/lon parsing, formatting
 └── ui/
     ├── shell/app_shell.dart      Bottom bar with raised "+"
-    ├── screens/                  home, scan, dashboard (Cards), compass, create/edit,
+    ├── screens/                  home, scan, route (Where to?), dashboard (Cards), compass, create/edit,
     │                             card detail, profile, settings, drawer, auth, onboarding
-    └── widgets/                  QR sheet, UserAvatar, logout confirmation
+    └── widgets/                  QR sheet, start/end point picker, UserAvatar, logout confirmation
 test/                             DIGIPIN, models, HTTP errors, QR parsing, onboarding smoke
 ```
 
@@ -171,6 +183,20 @@ flutter pub get
 flutter run                                       # uses https://digiroutes.vercel.app
 flutter run --dart-define=API_BASE_URL=http://<your-lan-ip>:3000   # local backend
 ```
+
+### Route planner key (free)
+Road routes and place-name search need a free
+[OpenRouteService](https://openrouteservice.org) key (no card). Without one the app
+still works and shows straight-line distance.
+
+```bash
+# env.local.json (git-ignored):  { "ORS_API_KEY": "your-key" }
+flutter run --dart-define-from-file=env.local.json
+```
+
+For CI releases add the key as the GitHub Actions secret **`ORS_API_KEY`**
+(the workflow passes it to `flutter build` as a `--dart-define`). The key ends up
+inside the APK, so use a free-tier key and never a paid one.
 
 Run the backend from the `digiroute` repo (`npm run dev -- -H 0.0.0.0`, MongoDB
 via `docker compose up -d`, `.env.local` with Mongo + Cloudinary + `SESSION_SECRET`).
