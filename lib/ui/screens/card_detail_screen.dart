@@ -13,6 +13,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/address_card.dart';
 import '../../data/repositories/cards_repository.dart';
 import '../../logic/digipin.dart';
+import '../../logic/providers.dart';
 
 class CardDetailScreen extends ConsumerStatefulWidget {
   final String digipin;
@@ -45,15 +46,78 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
       } catch (_) {}
 
       setState(() {
-        _card    = card;
-        _coords  = coords;
+        _card = card;
+        _coords = coords;
         _loading = false;
       });
     } catch (e) {
       setState(() {
-        _error   = 'Could not load card.';
+        _error = 'Could not load card.';
         _loading = false;
       });
+    }
+  }
+
+  bool get _isOwner {
+    final user = ref.read(authProvider).user;
+    return user != null && _card != null && _card!.ownerId == user.id;
+  }
+
+  Future<void> _toggleFavorite() async {
+    final card = _card;
+    if (card == null) return;
+    AppSound.tap(ref);
+    setState(() => _card = card.copyWith(isFavorite: !card.isFavorite));
+    final ok = await ref.read(cardsProvider.notifier).toggleFavorite(card);
+    if (!mounted) return;
+    if (!ok) {
+      setState(() => _card = card);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text('Could not update favorite.', style: GoogleFonts.outfit()),
+        backgroundColor: AppTheme.danger,
+      ));
+    }
+  }
+
+  Future<void> _edit() async {
+    final card = _card;
+    if (card == null) return;
+    final updated = await context.push<AddressCard>('/edit', extra: card);
+    if (updated != null && mounted) setState(() => _card = updated);
+  }
+
+  Future<void> _delete() async {
+    final card = _card;
+    if (card == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete Card',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+        content: Text('Delete "${card.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await ref.read(cardsProvider.notifier).deleteCard(card.id);
+      if (mounted) context.canPop() ? context.pop() : context.go('/dashboard');
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Failed to delete card.', style: GoogleFonts.outfit()),
+        backgroundColor: AppTheme.danger,
+      ));
     }
   }
 
@@ -63,13 +127,36 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () => context.pop(),
+          // Opened from a link there may be nothing to pop back to.
+          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
         ),
         title: Text(
           _card?.title ?? widget.digipin,
           style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
         ),
         actions: [
+          if (_isOwner) ...[
+            IconButton(
+              icon: Icon(
+                _card!.isFavorite
+                    ? Icons.star_rounded
+                    : Icons.star_border_rounded,
+                color: AppTheme.orange,
+              ),
+              onPressed: _toggleFavorite,
+              tooltip: _card!.isFavorite ? 'Unfavorite' : 'Favorite',
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: AppTheme.orange),
+              onPressed: _edit,
+              tooltip: 'Edit',
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppTheme.danger),
+              onPressed: _delete,
+              tooltip: 'Delete',
+            ),
+          ],
           IconButton(
             icon: const Icon(Icons.share_rounded, color: AppTheme.orange),
             onPressed: _share,
@@ -83,14 +170,14 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
           : _error != null
               ? _ErrorView(message: _error!)
               : _CardBody(
-                  card:       _card,
-                  digipin:    widget.digipin,
-                  coords:     _coords,
+                  card: _card,
+                  digipin: widget.digipin,
+                  coords: _coords,
                   photoIndex: _photoIndex,
                   onPhotoTap: (i) => setState(() => _photoIndex = i),
-                  onCopy:     _copyDigipin,
+                  onCopy: _copyDigipin,
                   onNavigate: _navigate,
-                  onShare:    _share,
+                  onShare: _share,
                 ),
     );
   }
@@ -106,7 +193,8 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
   }
 
   void _share() {
-    final url = _card?.shareUrl ?? 'https://digiroutes.vercel.app/card/${widget.digipin}';
+    final url = _card?.shareUrl ??
+        'https://digiroutes.vercel.app/card/${widget.digipin}';
     Share.share(
       '${_card?.title ?? "Location"}\nDIGIPIN: ${widget.digipin}\n$url',
       subject: _card?.title ?? 'DigiRoute Location',
@@ -208,7 +296,7 @@ class _CardBody extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.location_on_rounded,
-                      color: AppTheme.orange.withOpacity(0.4), size: 56),
+                      color: AppTheme.orange.withValues(alpha: 0.4), size: 56),
                   const SizedBox(height: 8),
                   Text('No entrance photo',
                       style: GoogleFonts.outfit(
@@ -252,8 +340,10 @@ class _CardBody extends StatelessWidget {
                       ],
                     ),
                   ),
-                ).animate(delay: 100.ms).fadeIn().scale(
-                    begin: const Offset(0.9, 0.9)),
+                )
+                    .animate(delay: 100.ms)
+                    .fadeIn()
+                    .scale(begin: const Offset(0.9, 0.9)),
 
                 const SizedBox(height: 6),
                 Text('Tap to copy · ~4m precision',
@@ -361,8 +451,7 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Text(message,
-          style:
-              GoogleFonts.outfit(color: AppTheme.danger, fontSize: 16)),
+          style: GoogleFonts.outfit(color: AppTheme.danger, fontSize: 16)),
     );
   }
 }

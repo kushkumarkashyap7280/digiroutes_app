@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/backdrop.dart';
 import '../../core/constants.dart';
 import '../../data/local/token_storage.dart';
 
@@ -32,9 +33,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.darkBg,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.darkBgGradient),
+      body: AppBackdrop(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -68,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 style: GoogleFonts.outfit(
                   fontSize: 36,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.darkText,
+                  color: AppTheme.textColor(context),
                   letterSpacing: -1,
                 ),
               )
@@ -82,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 AppConstants.appTagline,
                 style: GoogleFonts.outfit(
                   fontSize: 15,
-                  color: AppTheme.darkTextSec,
+                  color: AppTheme.textSecColor(context),
                   fontWeight: FontWeight.w400,
                 ),
               )

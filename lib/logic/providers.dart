@@ -18,8 +18,10 @@ final scaffoldKeyProvider = Provider<GlobalKey<ScaffoldState>>((ref) {
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository());
-final cardsRepositoryProvider = Provider<CardsRepository>((ref) => CardsRepository());
+final authRepositoryProvider =
+    Provider<AuthRepository>((ref) => AuthRepository());
+final cardsRepositoryProvider =
+    Provider<CardsRepository>((ref) => CardsRepository());
 
 // ─── Auth State ────────────────────────────────────────────────────────────────
 
@@ -29,11 +31,15 @@ class AuthState {
   final String? error;
   const AuthState({this.user, this.isLoading = false, this.error});
 
-  AuthState copyWith({AppUser? user, bool? isLoading, String? error, bool clearUser = false}) =>
+  AuthState copyWith(
+          {AppUser? user,
+          bool? isLoading,
+          String? error,
+          bool clearUser = false}) =>
       AuthState(
-        user:      clearUser ? null : user ?? this.user,
+        user: clearUser ? null : user ?? this.user,
         isLoading: isLoading ?? this.isLoading,
-        error:     error,
+        error: error,
       );
 }
 
@@ -93,6 +99,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _repo.logout();
     state = const AuthState();
   }
+
+  /// Updates name and/or avatar. Throws [AuthException] on failure.
+  Future<void> updateProfile({
+    String? name,
+    String? avatarUrl,
+    String? avatarId,
+  }) async {
+    final user = await _repo.updateProfile(
+      name: name,
+      avatarUrl: avatarUrl,
+      avatarId: avatarId,
+    );
+    state = state.copyWith(user: user);
+  }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
@@ -127,12 +147,12 @@ class CardsState {
     String? error,
   }) =>
       CardsState(
-        cards:          cards ?? this.cards,
-        nextCursor:     nextCursor ?? this.nextCursor,
-        hasMore:        hasMore ?? this.hasMore,
-        isLoading:      isLoading ?? this.isLoading,
-        isLoadingMore:  isLoadingMore ?? this.isLoadingMore,
-        error:          error,
+        cards: cards ?? this.cards,
+        nextCursor: nextCursor ?? this.nextCursor,
+        hasMore: hasMore ?? this.hasMore,
+        isLoading: isLoading ?? this.isLoading,
+        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+        error: error,
       );
 }
 
@@ -145,9 +165,9 @@ class CardsNotifier extends StateNotifier<CardsState> {
     try {
       final result = await _repo.getCards();
       state = CardsState(
-        cards:      result.cards,
+        cards: result.cards,
         nextCursor: result.nextCursor,
-        hasMore:    result.hasMore,
+        hasMore: result.hasMore,
       );
     } on CardsException catch (e) {
       state = state.copyWith(isLoading: false, error: e.message);
@@ -162,9 +182,9 @@ class CardsNotifier extends StateNotifier<CardsState> {
     try {
       final result = await _repo.getCards(cursor: state.nextCursor);
       state = state.copyWith(
-        cards:         [...state.cards, ...result.cards],
-        nextCursor:    result.nextCursor,
-        hasMore:       result.hasMore,
+        cards: [...state.cards, ...result.cards],
+        nextCursor: result.nextCursor,
+        hasMore: result.hasMore,
         isLoadingMore: false,
       );
     } catch (_) {
@@ -177,20 +197,57 @@ class CardsNotifier extends StateNotifier<CardsState> {
     required String title,
     String humanAddress = '',
     List<String> photoUrls = const [],
-    List<String> photoIds  = const [],
+    List<String> photoIds = const [],
   }) async {
     try {
       final card = await _repo.createCard(
-        digipin:      digipin,
-        title:        title,
+        digipin: digipin,
+        title: title,
         humanAddress: humanAddress,
-        photoUrls:    photoUrls,
-        photoIds:     photoIds,
+        photoUrls: photoUrls,
+        photoIds: photoIds,
       );
       state = state.copyWith(cards: [card, ...state.cards]);
       return card;
     } catch (e) {
       return null;
+    }
+  }
+
+  void _replace(AddressCard card) {
+    state = state.copyWith(
+      cards: [for (final c in state.cards) c.id == card.id ? card : c],
+    );
+  }
+
+  Future<AddressCard?> updateCard(
+    String id, {
+    String? title,
+    String? humanAddress,
+    List<String>? photoUrls,
+    List<String>? photoIds,
+  }) async {
+    final card = await _repo.updateCard(
+      id,
+      title: title,
+      humanAddress: humanAddress,
+      photoUrls: photoUrls,
+      photoIds: photoIds,
+    );
+    _replace(card);
+    return card;
+  }
+
+  /// Optimistically flips the favorite flag; rolls back if the request fails.
+  Future<bool> toggleFavorite(AddressCard card) async {
+    final next = !card.isFavorite;
+    _replace(card.copyWith(isFavorite: next));
+    try {
+      await _repo.updateCard(card.id, isFavorite: next);
+      return true;
+    } catch (_) {
+      _replace(card);
+      return false;
     }
   }
 
@@ -209,7 +266,7 @@ final cardsProvider = StateNotifierProvider<CardsNotifier, CardsState>((ref) {
 // ─── Theme ───────────────────────────────────────────────────────────────────
 
 class ThemeModeNotifier extends StateNotifier<ThemeMode> {
-  ThemeModeNotifier() : super(ThemeMode.dark) {
+  ThemeModeNotifier() : super(ThemeMode.light) {
     _init();
   }
 

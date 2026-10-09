@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/glass.dart';
+import '../../core/widgets/backdrop.dart';
 import '../../logic/providers.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
@@ -42,22 +43,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-    final theme = Theme.of(context);
     final textColor = AppTheme.textColor(context);
     final textSec = AppTheme.textSecColor(context);
 
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: theme.brightness == Brightness.dark
-                    ? AppTheme.darkBgGradient
-                    : AppTheme.lightBgGradient,
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackdrop(child: SizedBox.expand())),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) => SingleChildScrollView(

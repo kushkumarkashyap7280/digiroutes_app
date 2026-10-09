@@ -9,7 +9,7 @@ class SettingsStorage {
     final value = prefs.getString(AppConstants.themeModeKey);
     return ThemeMode.values.firstWhere(
       (m) => m.name == value,
-      orElse: () => ThemeMode.dark,
+      orElse: () => ThemeMode.light,
     );
   }
 

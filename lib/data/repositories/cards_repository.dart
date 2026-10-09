@@ -38,15 +38,19 @@ class CardsRepository {
     );
     final res = await http.get(uri, headers: headers);
 
-    if (res.statusCode == 401) throw CardsException('Please log in first.');
-    if (res.statusCode != 200) throw CardsException('Failed to load cards.');
+    if (res.statusCode == 401)
+      throw const CardsException('Please log in first.');
+    if (res.statusCode != 200)
+      throw const CardsException('Failed to load cards.');
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     final raw = data['cards'] as List? ?? [];
     return (
-      cards:      raw.map((j) => AddressCard.fromJson(j as Map<String, dynamic>)).toList(),
+      cards: raw
+          .map((j) => AddressCard.fromJson(j as Map<String, dynamic>))
+          .toList(),
       nextCursor: data['nextCursor'] as String?,
-      hasMore:    data['hasMore'] as bool? ?? false,
+      hasMore: data['hasMore'] as bool? ?? false,
     );
   }
 
@@ -56,7 +60,8 @@ class CardsRepository {
       _base.replace(path: '${AppConstants.cardsEndpoint}/digipin/$digipin'),
     );
     if (res.statusCode == 404) return null;
-    if (res.statusCode != 200) throw CardsException('Failed to load card.');
+    if (res.statusCode != 200)
+      throw const CardsException('Failed to load card.');
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return AddressCard.fromJson(data['card'] as Map<String, dynamic>);
   }
@@ -67,25 +72,27 @@ class CardsRepository {
     required String title,
     String humanAddress = '',
     List<String> photoUrls = const [],
-    List<String> photoIds  = const [],
+    List<String> photoIds = const [],
   }) async {
     final headers = await _authHeaders();
     final res = await http.post(
       _base.replace(path: AppConstants.cardsEndpoint),
       headers: headers,
       body: jsonEncode({
-        'digipin':      digipin,
-        'title':        title,
+        'digipin': digipin,
+        'title': title,
         'humanAddress': humanAddress,
-        'photoUrls':    photoUrls,
-        'photoIds':     photoIds,
+        'photoUrls': photoUrls,
+        'photoIds': photoIds,
       }),
     );
 
-    if (res.statusCode == 401) throw CardsException('Please log in first.');
+    if (res.statusCode == 401)
+      throw const CardsException('Please log in first.');
     if (res.statusCode != 201) {
       final body = jsonDecode(res.body) as Map<String, dynamic>;
-      throw CardsException(body['error'] as String? ?? 'Failed to create card.');
+      throw CardsException(
+          body['error'] as String? ?? 'Failed to create card.');
     }
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -99,29 +106,84 @@ class CardsRepository {
       _base.replace(path: '${AppConstants.cardsEndpoint}/$id'),
       headers: headers,
     );
-    if (res.statusCode != 200) throw CardsException('Failed to delete card.');
+    if (res.statusCode != 200)
+      throw const CardsException('Failed to delete card.');
   }
 
-  /// Upload an image file to Cloudinary via the backend.
-  /// Returns the Cloudinary `{ url, publicId }`.
+  /// Update a card. Only non-null fields are sent.
+  Future<AddressCard> updateCard(
+    String id, {
+    String? title,
+    String? humanAddress,
+    List<String>? photoUrls,
+    List<String>? photoIds,
+    bool? isFavorite,
+  }) async {
+    final headers = await _authHeaders();
+    final res = await http.put(
+      _base.replace(path: '${AppConstants.cardsEndpoint}/$id'),
+      headers: headers,
+      body: jsonEncode({
+        if (title != null) 'title': title,
+        if (humanAddress != null) 'humanAddress': humanAddress,
+        if (photoUrls != null) 'photoUrls': photoUrls,
+        if (photoIds != null) 'photoIds': photoIds,
+        if (isFavorite != null) 'isFavorite': isFavorite,
+      }),
+    );
+    if (res.statusCode == 401)
+      throw const CardsException('Please log in first.');
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      throw CardsException(
+          body['error'] as String? ?? 'Failed to update card.');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return AddressCard.fromJson(data['card'] as Map<String, dynamic>);
+  }
+
+  /// Max accepted image size (matches the web client).
+  static const int maxImageBytes = 4 * 1024 * 1024;
+
+  /// Upload an image straight to Cloudinary using signed params from the
+  /// backend (`/api/upload/sign`). Returns `{ url, publicId }`.
   Future<({String url, String publicId})> uploadImage(File imageFile) async {
-    final token = await TokenStorage.get();
+    if (await imageFile.length() > maxImageBytes) {
+      throw const CardsException('Image is larger than 4MB.');
+    }
+
+    final signRes = await http.post(
+      _base.replace(path: '${AppConstants.uploadEndpoint}/sign'),
+      headers: await _authHeaders(),
+    );
+    if (signRes.statusCode != 200) {
+      String? msg;
+      try {
+        msg = (jsonDecode(signRes.body) as Map<String, dynamic>)['error']
+            as String?;
+      } catch (_) {}
+      throw CardsException(msg ?? 'Could not start image upload.');
+    }
+    final sign = jsonDecode(signRes.body) as Map<String, dynamic>;
+
     final request = http.MultipartRequest(
       'POST',
-      _base.replace(path: AppConstants.uploadEndpoint),
-    );
-    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+      Uri.parse(
+          'https://api.cloudinary.com/v1_1/${sign['cloud_name']}/image/upload'),
+    )
+      ..fields['timestamp'] = '${sign['timestamp']}'
+      ..fields['signature'] = sign['signature'] as String
+      ..fields['api_key'] = '${sign['api_key']}'
+      ..fields['folder'] = sign['folder'] as String
+      ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
 
-    request.files.add(await http.MultipartFile.fromPath('file', imageFile.path));
-
-    final streamed = await request.send();
-    final res = await http.Response.fromStream(streamed);
-
-    if (res.statusCode != 200) throw CardsException('Image upload failed.');
+    final res = await http.Response.fromStream(await request.send());
+    if (res.statusCode != 200)
+      throw const CardsException('Image upload failed.');
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return (
-      url:      data['url'] as String,
-      publicId: data['publicId'] as String,
+      url: data['secure_url'] as String,
+      publicId: data['public_id'] as String,
     );
   }
 }

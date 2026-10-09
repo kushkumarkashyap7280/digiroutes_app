@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -53,7 +54,8 @@ class _FloatingNavBar extends StatelessWidget {
         border: Border.all(color: theme.dividerColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.35 : 0.1),
+            color: Colors.black.withValues(
+                alpha: theme.brightness == Brightness.dark ? 0.35 : 0.1),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -102,22 +104,39 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected ? AppTheme.orange : Theme.of(context).hintColor;
-    return InkWell(
-      borderRadius: BorderRadius.circular(24),
-      onTap: onTap,
-      child: Padding(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (!selected) HapticFeedback.selectionClick();
+        onTap();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.orangeSubtle : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: color, size: 24),
+            AnimatedScale(
+              scale: selected ? 1.18 : 1.0,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.elasticOut,
+              child: Icon(icon, color: color, size: 24),
+            ),
             const SizedBox(height: 2),
-            Text(label,
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: color,
-                )),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 250),
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+              ),
+              child: Text(label),
+            ),
           ],
         ),
       ),

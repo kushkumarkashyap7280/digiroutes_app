@@ -82,6 +82,30 @@ class AuthRepository {
     return AppUser.fromJson(userJson);
   }
 
+  /// Update the profile. Only non-null fields are sent; pass an empty
+  /// [avatarUrl]/[avatarId] to remove the picture.
+  Future<AppUser> updateProfile({
+    String? name,
+    String? avatarUrl,
+    String? avatarId,
+  }) async {
+    final headers = await _authHeaders();
+    final res = await http.put(
+      _base.replace(path: AppConstants.meEndpoint),
+      headers: headers,
+      body: jsonEncode({
+        if (name != null) 'name': name,
+        if (avatarUrl != null) 'avatarUrl': avatarUrl,
+        if (avatarId != null) 'avatarId': avatarId,
+      }),
+    );
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw AuthException(data['error'] as String? ?? 'Could not update profile.');
+    }
+    return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
   /// Logout — clears local token.
   Future<void> logout() async {
     await TokenStorage.clear();
