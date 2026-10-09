@@ -15,6 +15,7 @@ import '../../core/update_checker.dart';
 import '../../core/widgets/glass.dart';
 import '../../logic/digipin.dart';
 import '../../logic/providers.dart';
+import '../../core/widgets/brand_mark.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -219,16 +220,7 @@ class _TopBar extends StatelessWidget {
         children: [
           _GlassIconButton(icon: Icons.menu_rounded, onPressed: onMenu),
           const SizedBox(width: 10),
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              gradient: AppTheme.accentGradient,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: const Icon(Icons.location_on_rounded,
-                color: Colors.white, size: 17),
-          ),
+          const BrandMark(size: 30, radius: 9),
           const SizedBox(width: 10),
           Expanded(
             child: Text('DigiRoutes',
