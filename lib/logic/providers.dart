@@ -211,6 +211,9 @@ class CardsNotifier extends StateNotifier<CardsState> {
     String humanAddress = '',
     List<String> photoUrls = const [],
     List<String> photoIds = const [],
+    String category = '',
+    String deliveryNote = '',
+    String contactPhone = '',
   }) async {
     try {
       final card = await _repo.createCard(
@@ -219,6 +222,9 @@ class CardsNotifier extends StateNotifier<CardsState> {
         humanAddress: humanAddress,
         photoUrls: photoUrls,
         photoIds: photoIds,
+        category: category,
+        deliveryNote: deliveryNote,
+        contactPhone: contactPhone,
       );
       state = state.copyWith(cards: [card, ...state.cards]);
       return card;
@@ -241,6 +247,9 @@ class CardsNotifier extends StateNotifier<CardsState> {
     String? humanAddress,
     List<String>? photoUrls,
     List<String>? photoIds,
+    String? category,
+    String? deliveryNote,
+    String? contactPhone,
   }) async {
     final card = await _repo.updateCard(
       id,
@@ -248,6 +257,9 @@ class CardsNotifier extends StateNotifier<CardsState> {
       humanAddress: humanAddress,
       photoUrls: photoUrls,
       photoIds: photoIds,
+      category: category,
+      deliveryNote: deliveryNote,
+      contactPhone: contactPhone,
     );
     _replace(card);
     return card;

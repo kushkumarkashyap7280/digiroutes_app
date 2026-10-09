@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/theme/app_theme.dart';
 import '../../logic/providers.dart';
 import '../widgets/logout.dart';
 import '../widgets/user_avatar.dart';
 
-/// Side menu: navigation only. Preferences live on the Settings page and
+/// Side menu: account stuff only (profile, settings, share, logout) — the
+/// tabs live in the bottom bar, so nothing is duplicated here. Preferences
+/// live on the Settings page and
 /// Logout is pinned to the bottom (with a confirmation) so it can't be hit
 /// by accident. Rows deliberately give no ripple / sound / haptic feedback.
 class SettingsDrawer extends ConsumerWidget {
@@ -113,25 +116,6 @@ class SettingsDrawer extends ConsumerWidget {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   children: [
                     _DrawerItem(
-                      icon: LucideIcons.house,
-                      label: 'Home',
-                      onTap: () => _go(context, ref, '/home'),
-                    ),
-                    _DrawerItem(
-                      icon: LucideIcons.layoutGrid,
-                      label: 'My Cards',
-                      onTap: () => _go(context, ref, '/dashboard'),
-                    ),
-                    _DrawerItem(
-                      icon: LucideIcons.compass,
-                      label: 'Compass',
-                      onTap: () => _go(context, ref, '/compass'),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                      child: Divider(),
-                    ),
-                    _DrawerItem(
                       icon: LucideIcons.user,
                       label: 'Profile',
                       onTap: () => _go(context, ref, '/profile', push: true),
@@ -140,6 +124,16 @@ class SettingsDrawer extends ConsumerWidget {
                       icon: LucideIcons.settings,
                       label: 'Settings',
                       onTap: () => _go(context, ref, '/settings', push: true),
+                    ),
+                    _DrawerItem(
+                      icon: LucideIcons.share2,
+                      label: 'Share DigiRoutes',
+                      onTap: () {
+                        ref.read(scaffoldKeyProvider).currentState?.closeDrawer();
+                        Share.share(
+                            'Share your exact doorstep with DigiRoutes — '
+                            'https://github.com/kushkumarkashyap7280/digiroutes_app/releases/latest');
+                      },
                     ),
                   ],
                 ),

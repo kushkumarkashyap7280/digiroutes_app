@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/map_widgets.dart';
 import '../../core/sound.dart';
+import '../../core/card_categories.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/address_card.dart';
 import '../../data/repositories/cards_repository.dart';
@@ -27,6 +28,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _noteCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  String _category = '';
   final _picker = ImagePicker();
   final _cardsRepo = CardsRepository();
 
@@ -49,12 +53,21 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
     if (c != null) {
       _titleCtrl.text = c.title;
       _addressCtrl.text = c.humanAddress;
+      _noteCtrl.text = c.deliveryNote;
+      _phoneCtrl.text = c.contactPhone;
+      _category = c.category;
       _generatedDigipin = c.digipin;
       try {
         _pickedLocation = getLatLngFromDigiPin(c.digipin);
       } catch (_) {}
       _keptUrls.addAll(c.photoUrls);
       _keptIds.addAll(c.photoIds);
+    } else {
+      // New card: grab the current location straight away so saving is
+      // just "type a title → Save".
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _useCurrentLocation();
+      });
     }
   }
 
@@ -62,6 +75,8 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
   void dispose() {
     _titleCtrl.dispose();
     _addressCtrl.dispose();
+    _noteCtrl.dispose();
+    _phoneCtrl.dispose();
     super.dispose();
   }
 
@@ -190,6 +205,72 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                 ),
                 maxLines: 2,
               ).animate(delay: 250.ms).fadeIn(),
+
+              const SizedBox(height: 18),
+
+              // Category
+              Text('Category',
+                  style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecColor(context))),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final c in CardCategories.all)
+                    ChoiceChip(
+                      avatar: Icon(c.icon,
+                          size: 16,
+                          color: _category == c.id ? AppTheme.orange : null),
+                      label: Text(c.label),
+                      selected: _category == c.id,
+                      selectedColor: AppTheme.orangeSubtle,
+                      showCheckmark: false,
+                      // tapping the selected chip again clears it
+                      onSelected: (_) => setState(
+                          () => _category = _category == c.id ? '' : c.id),
+                    ),
+                ],
+              ).animate(delay: 280.ms).fadeIn(),
+
+              const SizedBox(height: 18),
+
+              TextFormField(
+                controller: _noteCtrl,
+                maxLines: 3,
+                maxLength: 300,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: 'Delivery note (optional)',
+                  hintText: 'e.g. Ring the bell twice, call before entering',
+                  prefixIcon: Icon(Icons.sticky_note_2_outlined, size: 20),
+                ),
+              ).animate(delay: 300.ms).fadeIn(),
+
+              const SizedBox(height: 14),
+
+              TextFormField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Contact phone (optional)',
+                  hintText: '+91 98765 43210',
+                  helperText:
+                      'Shown on the shared card so visitors can call or WhatsApp you.',
+                  helperMaxLines: 2,
+                  prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                ),
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return null;
+                  final cleaned = t.replaceAll(RegExp(r'[\s\-().]'), '');
+                  return RegExp(r'^\+?\d{7,15}$').hasMatch(cleaned)
+                      ? null
+                      : 'Enter a valid phone number.';
+                },
+              ).animate(delay: 320.ms).fadeIn(),
 
               const SizedBox(height: 28),
 
@@ -352,17 +433,25 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
         locationSettings:
             const LocationSettings(accuracy: LocationAccuracy.high),
       );
+      if (!mounted) return;
       setState(() {
+        _error = null;
         _pickedLocation =
             DigipinCoords(latitude: pos.latitude, longitude: pos.longitude);
         try {
           _generatedDigipin = getDigiPin(pos.latitude, pos.longitude);
         } catch (_) {
           _generatedDigipin = null;
+          _error = 'DigiRoutes only works for locations inside India.';
         }
       });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error =
+            'Could not get your location. Turn on GPS and allow location access.');
+      }
     } finally {
-      setState(() => _isLocating = false);
+      if (mounted) setState(() => _isLocating = false);
     }
   }
 
@@ -442,6 +531,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
               humanAddress: _addressCtrl.text.trim(),
               photoUrls: photoUrls,
               photoIds: photoIds,
+              category: _category,
+              deliveryNote: _noteCtrl.text.trim(),
+              contactPhone: _phoneCtrl.text.trim(),
             );
         if (updated != null && mounted) {
           AppSound.tap(ref);
@@ -457,6 +549,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
             humanAddress: _addressCtrl.text.trim(),
             photoUrls: photoUrls,
             photoIds: photoIds,
+            category: _category,
+            deliveryNote: _noteCtrl.text.trim(),
+            contactPhone: _phoneCtrl.text.trim(),
           );
 
       if (card != null && mounted) {

@@ -26,3 +26,17 @@ So every change that will be merged to `main` MUST bump `version:` in
   cannot update in place.
 - Before pushing: run `flutter analyze` and `flutter test` (CI runs the tests and
   a release build), and mention the new version in the commit/PR message.
+
+## Test native-plugin features on a *release* build
+
+Flutter release builds run R8 (code shrinking/renaming). Plugins that start
+through reflection — currently the QR scanner (`mobile_scanner` → ML Kit +
+CameraX) — can work in debug and then crash in release (v1.3.0: scan failed
+with a `NullPointerException` in obfuscated code). Keep rules live in
+`android/app/proguard-rules.pro`.
+
+- After adding or upgrading a plugin with native code, run
+  `flutter run --release` (or install the CI APK) and exercise that feature.
+- If something fails only in release, check `adb logcat` for a
+  `NullPointerException`/`ClassNotFoundException` in obfuscated frames and add
+  keep rules before considering `isMinifyEnabled = false`.

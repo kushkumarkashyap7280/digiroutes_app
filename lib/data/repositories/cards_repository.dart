@@ -74,6 +74,9 @@ class CardsRepository {
     String humanAddress = '',
     List<String> photoUrls = const [],
     List<String> photoIds = const [],
+    String category = '',
+    String deliveryNote = '',
+    String contactPhone = '',
   }) async {
     final headers = await _authHeaders();
     final res = await ApiHttp.post(
@@ -85,6 +88,9 @@ class CardsRepository {
         'humanAddress': humanAddress,
         'photoUrls': photoUrls,
         'photoIds': photoIds,
+        'category': category,
+        'deliveryNote': deliveryNote,
+        'contactPhone': contactPhone,
       }),
     );
 
@@ -117,6 +123,9 @@ class CardsRepository {
     List<String>? photoUrls,
     List<String>? photoIds,
     bool? isFavorite,
+    String? category,
+    String? deliveryNote,
+    String? contactPhone,
   }) async {
     final headers = await _authHeaders();
     final res = await ApiHttp.put(
@@ -128,6 +137,9 @@ class CardsRepository {
         if (photoUrls != null) 'photoUrls': photoUrls,
         if (photoIds != null) 'photoIds': photoIds,
         if (isFavorite != null) 'isFavorite': isFavorite,
+        if (category != null) 'category': category,
+        if (deliveryNote != null) 'deliveryNote': deliveryNote,
+        if (contactPhone != null) 'contactPhone': contactPhone,
       }),
     );
     if (res.statusCode == 401)

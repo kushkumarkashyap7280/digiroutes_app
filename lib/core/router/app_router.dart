@@ -10,6 +10,7 @@ import '../../ui/screens/signup_screen.dart';
 import '../../ui/screens/home_screen.dart';
 import '../../ui/screens/dashboard_screen.dart';
 import '../../ui/screens/compass_screen.dart';
+import '../../ui/screens/scan_screen.dart';
 import '../../ui/screens/create_card_screen.dart';
 import '../../ui/screens/card_detail_screen.dart';
 import '../../ui/screens/profile_screen.dart';
@@ -99,6 +100,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         branches: [
           StatefulShellBranch(routes: [
             GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/scan', builder: (_, __) => const ScanScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

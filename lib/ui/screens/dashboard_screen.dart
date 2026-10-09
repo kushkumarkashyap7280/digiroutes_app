@@ -4,14 +4,17 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../core/sound.dart';
+import '../../core/card_categories.dart';
+import '../../core/card_share.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/address_card.dart';
 import '../../data/repositories/cards_repository.dart';
 import '../../logic/providers.dart';
+import '../widgets/qr_sheet.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -23,7 +26,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   final _scrollController = ScrollController();
   final _searchCtrl = TextEditingController();
-  bool _onlyFavorites = false;
+  String _filter = 'all'; // 'all' | 'fav' | a category id
   String _query = '';
 
   @override
@@ -54,7 +57,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final cards = ref.watch(cardsProvider);
     final q = _query.trim().toLowerCase();
     final visible = cards.cards.where((c) {
-      if (_onlyFavorites && !c.isFavorite) return false;
+      if (_filter == 'fav' && !c.isFavorite) return false;
+      if (_filter != 'all' && _filter != 'fav' && c.category != _filter) {
+        return false;
+      }
       if (q.isEmpty) return true;
       return c.title.toLowerCase().contains(q) ||
           c.digipin.toLowerCase().contains(q) ||
@@ -74,24 +80,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             style: GoogleFonts.outfit(
               fontWeight: FontWeight.w700,
             )),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilledButton.icon(
-              onPressed: () => context.push('/create'),
-              icon: const Icon(Icons.add, size: 18),
-              label: Text('New',
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.orange,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-              ),
-            ),
-          ),
-        ],
       ),
       body: cards.isLoading
           ? _ShimmerGrid()
@@ -102,14 +90,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     _SearchBar(
                       controller: _searchCtrl,
                       onChanged: (v) => setState(() => _query = v),
-                      onlyFavorites: _onlyFavorites,
+                      filter: _filter,
                       favCount: cards.cards.where((c) => c.isFavorite).length,
-                      onToggleFavorites: (v) =>
-                          setState(() => _onlyFavorites = v),
+                      usedCategories:
+                          cards.cards.map((c) => c.category).toSet(),
+                      onFilter: (v) => setState(() => _filter = v),
                     ),
                     Expanded(
                       child: visible.isEmpty
-                          ? _NoMatches(onlyFavorites: _onlyFavorites)
+                          ? _NoMatches(filter: _filter)
                           : RefreshIndicator(
                               color: AppTheme.orange,
                               onRefresh: () =>
@@ -124,7 +113,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   crossAxisCount: 2,
                                   mainAxisSpacing: 14,
                                   crossAxisSpacing: 14,
-                                  childAspectRatio: 0.78,
+                                  childAspectRatio: 0.74,
                                 ),
                                 itemCount: visible.length +
                                     (cards.isLoadingMore ? 2 : 0),
@@ -198,8 +187,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.share_rounded, color: AppTheme.orange),
-              title: const Text('Share'),
+              title: const Text('Share with photo & details'),
               onTap: () => Navigator.pop(ctx, 'share'),
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.qrCode, color: AppTheme.orange),
+              title: const Text('Show QR code'),
+              onTap: () => Navigator.pop(ctx, 'qr'),
             ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: AppTheme.danger),
@@ -218,10 +212,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       case 'edit':
         await context.push('/edit', extra: card);
       case 'share':
-        await Share.share(
-          '${card.title}\nDIGIPIN: ${card.digipin}\n${card.shareUrl}',
-          subject: card.title,
-        );
+        await shareCardRich(card);
+      case 'qr':
+        await showCardQrSheet(context, card);
       case 'delete':
         await _confirmDelete(card);
     }
@@ -391,6 +384,21 @@ class _CardItemState extends State<_CardItem> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
+                    if (CardCategories.byId(card.category) != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Row(
+                          children: [
+                            Icon(CardCategories.byId(card.category)!.icon,
+                                size: 12, color: AppTheme.mutedColor(context)),
+                            const SizedBox(width: 4),
+                            Text(CardCategories.byId(card.category)!.label,
+                                style: GoogleFonts.outfit(
+                                    fontSize: 11,
+                                    color: AppTheme.mutedColor(context))),
+                          ],
+                        ),
+                      ),
                     Row(
                       children: [
                         Expanded(
@@ -458,61 +466,80 @@ class _PlaceholderPhoto extends StatelessWidget {
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
-  final bool onlyFavorites;
+  final String filter;
   final int favCount;
-  final ValueChanged<bool> onToggleFavorites;
+  final Set<String> usedCategories;
+  final ValueChanged<String> onFilter;
 
   const _SearchBar({
     required this.controller,
     required this.onChanged,
-    required this.onlyFavorites,
+    required this.filter,
     required this.favCount,
-    required this.onToggleFavorites,
+    required this.usedCategories,
+    required this.onFilter,
   });
+
+  Widget _chip({
+    required String id,
+    required String label,
+    required IconData icon,
+  }) {
+    final selected = filter == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        avatar: Icon(icon, size: 16, color: selected ? AppTheme.orange : null),
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        selectedColor: AppTheme.orangeSubtle,
+        onSelected: (_) => onFilter(id),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 0, 0),
       child: Column(
         children: [
-          TextField(
-            controller: controller,
-            onChanged: onChanged,
-            decoration: InputDecoration(
-              hintText: 'Search title, address or DIGIPIN',
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              suffixIcon: controller.text.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 18),
-                      onPressed: () {
-                        controller.clear();
-                        onChanged('');
-                      },
-                    ),
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              decoration: InputDecoration(
+                hintText: 'Search title, address or DIGIPIN',
+                prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                suffixIcon: controller.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        onPressed: () {
+                          controller.clear();
+                          onChanged('');
+                        },
+                      ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Wrap(
-              spacing: 8,
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(right: 16),
+            child: Row(
               children: [
-                ChoiceChip(
-                  label: const Text('All'),
-                  selected: !onlyFavorites,
-                  onSelected: (_) => onToggleFavorites(false),
-                  selectedColor: AppTheme.orangeSubtle,
-                ),
-                ChoiceChip(
-                  avatar: Icon(Icons.star_rounded,
-                      size: 16, color: onlyFavorites ? AppTheme.orange : null),
-                  label: Text('Favorites ($favCount)'),
-                  selected: onlyFavorites,
-                  onSelected: (_) => onToggleFavorites(true),
-                  selectedColor: AppTheme.orangeSubtle,
-                ),
+                _chip(id: 'all', label: 'All', icon: Icons.apps_rounded),
+                _chip(
+                    id: 'fav',
+                    label: 'Favorites ($favCount)',
+                    icon: Icons.star_rounded),
+                // Only offer categories that are actually in use.
+                for (final c in CardCategories.all)
+                  if (usedCategories.contains(c.id))
+                    _chip(id: c.id, label: c.label, icon: c.icon),
               ],
             ),
           ),
@@ -523,14 +550,14 @@ class _SearchBar extends StatelessWidget {
 }
 
 class _NoMatches extends StatelessWidget {
-  final bool onlyFavorites;
-  const _NoMatches({required this.onlyFavorites});
+  final String filter;
+  const _NoMatches({required this.filter});
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Text(
-        onlyFavorites
+        filter == 'fav'
             ? 'No favorites yet — tap the star on a card.'
             : 'No cards match your search.',
         style: GoogleFonts.outfit(color: AppTheme.mutedColor(context)),
@@ -597,7 +624,7 @@ class _ShimmerGrid extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 14,
         crossAxisSpacing: 14,
-        childAspectRatio: 0.78,
+        childAspectRatio: 0.74,
       ),
       itemCount: 6,
       itemBuilder: (_, __) => _ShimmerCardItem(),
