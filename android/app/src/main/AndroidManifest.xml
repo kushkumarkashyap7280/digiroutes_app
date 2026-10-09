@@ -39,6 +39,9 @@
                 <data android:scheme="https"
                       android:host="digiroutes.vercel.app"
                       android:pathPrefix="/digipin/"/>
+                <data android:scheme="https"
+                      android:host="digiroutes.vercel.app"
+                      android:pathPrefix="/c/"/>
             </intent-filter>
         </activity>
         <meta-data

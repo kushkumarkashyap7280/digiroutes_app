@@ -15,7 +15,10 @@ import '../../logic/qr_link.dart';
 ///  2. pick a screenshot / saved QR image from the gallery,
 ///  3. type or paste a DIGIPIN or DigiRoutes link.
 class ScanScreen extends StatefulWidget {
-  const ScanScreen({super.key});
+  /// When true the screen is pushed as a picker: it returns the scanned
+  /// DIGIPIN to the caller (`context.pop(pin)`) instead of opening the card.
+  final bool pickMode;
+  const ScanScreen({super.key, this.pickMode = false});
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -77,12 +80,38 @@ class _ScanScreenState extends State<ScanScreen> {
       ));
   }
 
-  Future<void> _open(String pin) async {
+  /// [pin] is a DIGIPIN; [token] is a private share-link token. A card link
+  /// opens the card itself; as a point-picker only a DIGIPIN makes sense.
+  Future<void> _open({String? pin, String? token}) async {
     if (_opening) return;
     _opening = true;
     HapticFeedback.mediumImpact();
-    await context.push('/card/$pin');
+    if (widget.pickMode) {
+      if (pin != null) {
+        if (mounted) context.pop(pin);
+      } else {
+        _opening = false;
+        _warn('That is a private card link, not a location. Scan a DIGIPIN QR.');
+      }
+      return;
+    }
+    await context.push(token != null ? '/c/$token' : '/card/$pin');
     _opening = false;
+  }
+
+  /// Opens whatever [raw] contains; returns false when it isn't ours.
+  bool _openRaw(String raw) {
+    final token = shareTokenFromScan(raw);
+    if (token != null) {
+      _open(token: token);
+      return true;
+    }
+    final pin = digipinFromScan(raw);
+    if (pin != null) {
+      _open(pin: pin);
+      return true;
+    }
+    return false;
   }
 
   void _onDetect(BarcodeCapture capture) {
@@ -92,11 +121,7 @@ class _ScanScreenState extends State<ScanScreen> {
       final raw = b.rawValue;
       if (raw == null) continue;
       sawCode = true;
-      final pin = digipinFromScan(raw);
-      if (pin != null) {
-        _open(pin);
-        return;
-      }
+      if (_openRaw(raw)) return;
     }
     if (sawCode) _warn("That QR code isn't a DigiRoutes location.");
   }
@@ -115,11 +140,7 @@ class _ScanScreenState extends State<ScanScreen> {
         return;
       }
       for (final b in codes) {
-        final pin = b.rawValue == null ? null : digipinFromScan(b.rawValue!);
-        if (pin != null) {
-          await _open(pin);
-          return;
-        }
+        if (b.rawValue != null && _openRaw(b.rawValue!)) return;
       }
       _warn("That QR code isn't a DigiRoutes location.");
     } catch (_) {
@@ -128,13 +149,13 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _enterCode() async {
-    final pin = await showModalBottomSheet<String>(
+    final text = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (_) => const _EnterCodeSheet(),
     );
-    if (pin != null) await _open(pin);
+    if (text != null) _openRaw(text);
   }
 
   @override
@@ -166,7 +187,7 @@ class _ScanScreenState extends State<ScanScreen> {
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
               child: Column(
                 children: [
-                  Text('Scan a DigiRoutes QR',
+                  Text(widget.pickMode ? 'Scan a point' : 'Scan a DigiRoutes QR',
                       style: GoogleFonts.outfit(
                           color: Colors.white,
                           fontSize: 22,
@@ -184,11 +205,22 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
           ),
 
+          if (widget.pickMode)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: IconButton(
+                  icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
+                  onPressed: () => context.pop(),
+                ),
+              ),
+            ),
+
           // Actions (kept above the floating nav bar)
           Positioned(
             left: 0,
             right: 0,
-            bottom: 112 + bottomInset,
+            bottom: (widget.pickMode ? 36 : 112) + bottomInset,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -470,12 +502,12 @@ class _EnterCodeSheetState extends State<_EnterCodeSheet> {
   }
 
   void _submit() {
-    final pin = digipinFromScan(_ctrl.text);
-    if (pin == null) {
+    final text = _ctrl.text.trim();
+    if (shareTokenFromScan(text) == null && digipinFromScan(text) == null) {
       setState(() => _error = 'Enter a valid DIGIPIN or DigiRoutes link.');
       return;
     }
-    Navigator.pop(context, pin);
+    Navigator.pop(context, text); // the caller works out which kind it is
   }
 
   Future<void> _paste() async {

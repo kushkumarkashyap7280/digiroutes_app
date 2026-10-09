@@ -14,7 +14,7 @@ import '../../core/update_checker.dart';
 import '../../core/widgets/glass.dart';
 import '../../logic/digipin.dart';
 import '../../logic/providers.dart';
-import '../../core/widgets/brand_mark.dart';
+import 'package:go_router/go_router.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -63,9 +63,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: _TopBar(
+                child: _SearchBar(
                   onMenu: () =>
                       ref.read(scaffoldKeyProvider).currentState?.openDrawer(),
+                  onSearch: () => context.push('/route'),
                 ),
               ),
             ),
@@ -199,33 +200,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-// ─── Floating glass top bar ────────────────────────────────────────────────────
+// ─── Single top bar: menu + "Where to?" ───────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
+/// One floating pill, like Google Maps: menu on the left, the whole rest of the
+/// bar opens the route planner.
+class _SearchBar extends StatelessWidget {
   final VoidCallback onMenu;
-  const _TopBar({required this.onMenu});
+  final VoidCallback onSearch;
+  const _SearchBar({required this.onMenu, required this.onSearch});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return GlassContainer(
-      radius: 20,
+      radius: 28,
       frosted: false,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       child: Row(
         children: [
           _GlassIconButton(icon: Icons.menu_rounded, onPressed: onMenu),
-          const SizedBox(width: 10),
-          const BrandMark(size: 30, radius: 9),
-          const SizedBox(width: 10),
           Expanded(
-            child: Text('DigiRoutes',
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: theme.textTheme.bodyLarge?.color,
-                )),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onSearch,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text('Where do you want to go?',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppTheme.textSecColor(context))),
+                    ),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      margin: const EdgeInsets.only(left: 8),
+                      decoration: const BoxDecoration(
+                        gradient: AppTheme.accentGradient,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.alt_route_rounded,
+                          color: Colors.white, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),

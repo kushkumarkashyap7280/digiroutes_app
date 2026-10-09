@@ -13,7 +13,9 @@ String cardShareText(AddressCard card) {
     ..writeln('DIGIPIN: ${card.digipin}');
   if (card.humanAddress.isNotEmpty) buf.writeln(card.humanAddress);
   if (card.deliveryNote.isNotEmpty) buf.writeln('📝 ${card.deliveryNote}');
-  if (card.contactPhone.isNotEmpty) buf.writeln('📞 ${card.contactPhone}');
+  if (card.contactPhone.isNotEmpty && !card.hidePhone) {
+    buf.writeln('📞 ${card.contactPhone}');
+  }
   try {
     final c = getLatLngFromDigiPin(card.digipin);
     buf.writeln('🗺️ https://www.google.com/maps?q=${c.latitude},${c.longitude}');

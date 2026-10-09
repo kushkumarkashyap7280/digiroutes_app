@@ -126,7 +126,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     setState(() => _uploading = true);
     try {
       final up = await _cardsRepo.uploadImage(file);
-      await notifier.updateProfile(avatarUrl: up.url, avatarId: up.publicId);
+      try {
+        await notifier.updateProfile(avatarUrl: up.url, avatarId: up.publicId);
+      } catch (_) {
+        // Saved to Cloudinary but not to the profile: don't leave it orphaned.
+        await _cardsRepo.discardUploads([up.publicId]);
+        rethrow;
+      }
       HapticFeedback.mediumImpact();
       _toast('Profile photo updated');
     } on CardsException catch (e) {

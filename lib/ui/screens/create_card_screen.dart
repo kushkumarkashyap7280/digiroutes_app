@@ -513,6 +513,10 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
       _error = null;
     });
 
+    // Photos uploaded during THIS attempt. If saving fails afterwards they
+    // would be orphaned on Cloudinary forever, so we discard them below.
+    final uploaded = <String>[];
+
     try {
       // Upload new photos (kept ones are already on Cloudinary)
       final photoUrls = <String>[..._keptUrls];
@@ -522,6 +526,7 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
         final result = await _cardsRepo.uploadImage(photo);
         photoUrls.add(result.url);
         photoIds.add(result.publicId);
+        uploaded.add(result.publicId);
       }
 
       if (_isEdit) {
@@ -556,11 +561,13 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
 
       if (card != null && mounted) {
         AppSound.tap(ref);
-        context.pushReplacement('/card/${card.digipin}');
+        context.pushReplacement('/my/${card.id}', extra: card);
       } else {
         setState(() => _error = 'Failed to save card. Please try again.');
       }
     } catch (e) {
+      await _cardsRepo.discardUploads(uploaded);
+      if (!mounted) return;
       setState(() => _error = e is CardsException
           ? e.message
           : 'Something went wrong. Please try again.');

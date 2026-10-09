@@ -10,6 +10,7 @@ import '../../ui/screens/signup_screen.dart';
 import '../../ui/screens/home_screen.dart';
 import '../../ui/screens/dashboard_screen.dart';
 import '../../ui/screens/compass_screen.dart';
+import '../../ui/screens/route_screen.dart';
 import '../../ui/screens/scan_screen.dart';
 import '../../ui/screens/create_card_screen.dart';
 import '../../ui/screens/card_detail_screen.dart';
@@ -71,6 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.matchedLocation;
       final isAuthPath = path == '/login' || path == '/signup';
       final isPublicPath = path.startsWith('/card/') ||
+          path.startsWith('/c/') ||
           path.startsWith('/digipin/') ||
           path == '/splash' ||
           path == '/onboarding';
@@ -123,6 +125,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             '/card/${state.pathParameters['digipin']!.toUpperCase()}',
       ),
       GoRoute(
+        path: '/route',
+        pageBuilder: (_, st) => _slidePage(st, const RouteScreen()),
+      ),
+      // Scanner used as a picker (returns the scanned DIGIPIN to the caller).
+      GoRoute(
+        path: '/scan-pick',
+        pageBuilder: (_, st) => _slidePage(st, const ScanScreen(pickMode: true)),
+      ),
+      GoRoute(
         path: '/profile',
         pageBuilder: (_, st) => _slidePage(st, const ProfileScreen()),
       ),
@@ -138,6 +149,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/edit',
         pageBuilder: (_, state) => _slidePage(
             state, CreateCardScreen(existing: state.extra as AddressCard)),
+      ),
+      // Private share link (works signed-out): https://…/c/<token>
+      GoRoute(
+        path: '/c/:token',
+        pageBuilder: (_, state) => _slidePage(
+          state,
+          CardDetailScreen(token: state.pathParameters['token']!),
+        ),
+      ),
+      // Own card, opened from the list (the full card travels in `extra`).
+      GoRoute(
+        path: '/my/:id',
+        pageBuilder: (_, state) => _slidePage(
+          state,
+          CardDetailScreen(
+            cardId: state.pathParameters['id']!,
+            initial: state.extra is AddressCard ? state.extra as AddressCard : null,
+          ),
+        ),
       ),
       GoRoute(
         path: '/card/:digipin',

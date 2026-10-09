@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../core/api_http.dart';
 import '../models/address_card.dart';
+import '../models/cards_page.dart';
 import '../local/token_storage.dart';
 import '../../core/constants.dart';
 
@@ -25,37 +26,82 @@ class CardsRepository {
     };
   }
 
-  /// Fetch a paginated list of the user's address cards.
-  /// Returns `(cards, nextCursor, hasMore)`.
-  Future<({List<AddressCard> cards, String? nextCursor, bool hasMore})>
-      getCards({String? cursor, int limit = 12}) async {
+  /// Fetch one page of the user's cards (cursor pagination, newest first).
+  /// [q] searches title / address / DIGIPIN; [filter] is 'all', 'fav' or a
+  /// category id — both are applied on the server so they cover every page.
+  Future<CardsPage> getCards({
+    String? cursor,
+    int limit = 12,
+    String q = '',
+    String filter = 'all',
+  }) async {
     final headers = await _authHeaders();
     final uri = _base.replace(
       path: AppConstants.cardsEndpoint,
       queryParameters: {
         if (cursor != null) 'cursor': cursor,
         'limit': '$limit',
+        if (q.trim().isNotEmpty) 'q': q.trim(),
+        if (filter == 'fav') 'favorite': 'true',
+        if (filter != 'all' && filter != 'fav') 'category': filter,
       },
     );
     final res = await ApiHttp.get(uri, headers: headers);
 
-    if (res.statusCode == 401)
+    if (res.statusCode == 401) {
       throw const CardsException('Please log in first.');
-    if (res.statusCode != 200)
-      throw const CardsException('Failed to load cards.');
-
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    final raw = data['cards'] as List? ?? [];
-    return (
-      cards: raw
-          .map((j) => AddressCard.fromJson(j as Map<String, dynamic>))
-          .toList(),
-      nextCursor: data['nextCursor'] as String?,
-      hasMore: data['hasMore'] as bool? ?? false,
-    );
+    }
+    if (res.statusCode != 200) {
+      throw CardsException(ApiHttp.errorMessage(res, 'Failed to load cards.'));
+    }
+    return CardsPage.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
-  /// Fetch a single public card by [digipin].
+  /// Best-effort: delete photos that were uploaded but never attached to a card
+  /// or profile (the save failed afterwards). The server only deletes ids in
+  /// the caller's own folder that are not in use, so this is safe to call.
+  Future<void> discardUploads(Iterable<String> publicIds) async {
+    final ids = publicIds.where((id) => id.isNotEmpty).toList();
+    if (ids.isEmpty) return;
+    try {
+      await ApiHttp.post(
+        _base.replace(path: '${AppConstants.uploadEndpoint}/cleanup'),
+        headers: await _authHeaders(),
+        body: jsonEncode({'publicIds': ids}),
+      );
+    } catch (_) {/* nothing more we can do; never mask the original error */}
+  }
+
+  /// One of the signed-in user's own cards, with its sharing settings.
+  Future<AddressCard?> getOwnCard(String id) async {
+    final res = await ApiHttp.get(
+      _base.replace(path: '${AppConstants.cardsEndpoint}/$id'),
+      headers: await _authHeaders(),
+    );
+    if (res.statusCode == 404 || res.statusCode == 401) return null;
+    if (res.statusCode != 200) {
+      throw CardsException(ApiHttp.errorMessage(res, 'Failed to load card.'));
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return AddressCard.fromJson(data['card'] as Map<String, dynamic>);
+  }
+
+  /// The card behind a private share link (no login needed). Null when the
+  /// link is switched off, expired, reset or unknown.
+  Future<AddressCard?> getSharedCard(String token) async {
+    final res = await ApiHttp.get(
+      _base.replace(path: '${AppConstants.cardsEndpoint}/shared/$token'),
+    );
+    if (res.statusCode == 404) return null;
+    if (res.statusCode != 200) {
+      throw CardsException(ApiHttp.errorMessage(res, 'Failed to load card.'));
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return AddressCard.fromJson(data['card'] as Map<String, dynamic>);
+  }
+
+  /// Fetch a single card by [digipin]. The server only returns it to its
+  /// signed-in owner, or for older cards whose link hasn't been reset yet.
   Future<AddressCard?> getCardByDigipin(String digipin) async {
     final res = await ApiHttp.get(
       _base.replace(path: '${AppConstants.cardsEndpoint}/digipin/$digipin'),
@@ -126,6 +172,10 @@ class CardsRepository {
     String? category,
     String? deliveryNote,
     String? contactPhone,
+    bool? sharingEnabled,
+    bool? hidePhone,
+    String? shareExpiry, // 'none' | '24h' | '7d'
+    bool resetShareLink = false,
   }) async {
     final headers = await _authHeaders();
     final res = await ApiHttp.put(
@@ -140,6 +190,10 @@ class CardsRepository {
         if (category != null) 'category': category,
         if (deliveryNote != null) 'deliveryNote': deliveryNote,
         if (contactPhone != null) 'contactPhone': contactPhone,
+        if (sharingEnabled != null) 'sharingEnabled': sharingEnabled,
+        if (hidePhone != null) 'hidePhone': hidePhone,
+        if (shareExpiry != null) 'shareExpiry': shareExpiry,
+        if (resetShareLink) 'resetShareLink': true,
       }),
     );
     if (res.statusCode == 401)
