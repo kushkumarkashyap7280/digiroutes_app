@@ -24,6 +24,22 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Android App Links: https://digiroutes.vercel.app/card/<pin> and
+                 /digipin/<pin> open in the app when installed (verified via
+                 /.well-known/assetlinks.json); otherwise they open on the web. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"
+                      android:host="digiroutes.vercel.app"
+                      android:pathPrefix="/card/"/>
+                <data android:scheme="https"
+                      android:host="digiroutes.vercel.app"
+                      android:pathPrefix="/digipin/"/>
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"

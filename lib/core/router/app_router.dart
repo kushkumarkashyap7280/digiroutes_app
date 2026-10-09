@@ -1,5 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/address_card.dart';
 import '../../logic/providers.dart';
 import '../../ui/screens/splash_screen.dart';
 import '../../ui/screens/onboarding_screen.dart';
@@ -10,7 +12,55 @@ import '../../ui/screens/dashboard_screen.dart';
 import '../../ui/screens/compass_screen.dart';
 import '../../ui/screens/create_card_screen.dart';
 import '../../ui/screens/card_detail_screen.dart';
+import '../../ui/screens/profile_screen.dart';
+import '../../ui/screens/settings_screen.dart';
 import '../../ui/shell/app_shell.dart';
+
+/// Slide-from-right + fade, with a subtle parallax on the outgoing page.
+CustomTransitionPage<T> _slidePage<T>(GoRouterState state, Widget child) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 380),
+    reverseTransitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (context, animation, secondary, child) {
+      final curved =
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final out =
+          CurvedAnimation(parent: secondary, curve: Curves.easeOutCubic);
+      return SlideTransition(
+        position:
+            Tween(begin: Offset.zero, end: const Offset(-0.25, 0)).animate(out),
+        child: SlideTransition(
+          position: Tween(begin: const Offset(1, 0), end: Offset.zero)
+              .animate(curved),
+          child: FadeTransition(
+              opacity: Tween<double>(begin: 0.4, end: 1).animate(curved),
+              child: child),
+        ),
+      );
+    },
+  );
+}
+
+/// Cross-fade with a gentle scale — for auth / onboarding hops.
+CustomTransitionPage<T> _fadePage<T>(GoRouterState state, Widget child) {
+  return CustomTransitionPage<T>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 450),
+    transitionsBuilder: (context, animation, secondary, child) {
+      final curved =
+          CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      return FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+            scale: Tween<double>(begin: 0.97, end: 1).animate(curved),
+            child: child),
+      );
+    },
+  );
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -20,7 +70,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.matchedLocation;
       final isAuthPath = path == '/login' || path == '/signup';
       final isPublicPath = path.startsWith('/card/') ||
-          path == '/splash' || path == '/onboarding';
+          path.startsWith('/digipin/') ||
+          path == '/splash' ||
+          path == '/onboarding';
       if (isPublicPath || isAuthPath) return null;
 
       final authState = ref.read(authProvider);
@@ -30,10 +82,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/splash',      builder: (_, __) => const SplashScreen()),
-      GoRoute(path: '/onboarding',  builder: (_, __) => const OnboardingScreen()),
-      GoRoute(path: '/login',       builder: (_, __) => const LoginScreen()),
-      GoRoute(path: '/signup',      builder: (_, __) => const SignupScreen()),
+      GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+      GoRoute(
+          path: '/onboarding',
+          pageBuilder: (_, st) => _fadePage(st, const OnboardingScreen())),
+      GoRoute(
+          path: '/login',
+          pageBuilder: (_, st) => _fadePage(st, const LoginScreen())),
+      GoRoute(
+          path: '/signup',
+          pageBuilder: (_, st) => _slidePage(st, const SignupScreen())),
 
       // Persistent bottom-nav shell — Home & Cards each keep their own stack.
       StatefulShellRoute.indexedStack(
@@ -43,19 +101,45 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/dashboard', builder: (_, __) => const DashboardScreen()),
+            GoRoute(
+                path: '/dashboard',
+                builder: (_, __) => const DashboardScreen()),
           ]),
           StatefulShellBranch(routes: [
-            GoRoute(path: '/compass', builder: (_, __) => const CompassScreen()),
+            GoRoute(
+                path: '/compass', builder: (_, __) => const CompassScreen()),
           ]),
         ],
       ),
 
-      GoRoute(path: '/create', builder: (_, __) => const CreateCardScreen()),
+      // Web alias — https://…/digipin/<pin> shows the same screen as /card/<pin>.
+      GoRoute(
+        path: '/digipin/:digipin',
+        redirect: (_, state) =>
+            '/card/${state.pathParameters['digipin']!.toUpperCase()}',
+      ),
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (_, st) => _slidePage(st, const ProfileScreen()),
+      ),
+      GoRoute(
+        path: '/settings',
+        pageBuilder: (_, st) => _slidePage(st, const SettingsScreen()),
+      ),
+      GoRoute(
+        path: '/create',
+        pageBuilder: (_, st) => _slidePage(st, const CreateCardScreen()),
+      ),
+      GoRoute(
+        path: '/edit',
+        pageBuilder: (_, state) => _slidePage(
+            state, CreateCardScreen(existing: state.extra as AddressCard)),
+      ),
       GoRoute(
         path: '/card/:digipin',
-        builder: (_, state) => CardDetailScreen(
-          digipin: state.pathParameters['digipin']!,
+        pageBuilder: (_, state) => _slidePage(
+          state,
+          CardDetailScreen(digipin: state.pathParameters['digipin']!),
         ),
       ),
     ],

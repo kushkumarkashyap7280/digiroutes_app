@@ -7,6 +7,7 @@ class AddressCard {
   final List<String> photoUrls;
   final List<String> photoIds;
   final String humanAddress;
+  final bool isFavorite;
   final DateTime createdAt;
 
   const AddressCard({
@@ -17,50 +18,55 @@ class AddressCard {
     required this.photoUrls,
     required this.photoIds,
     required this.humanAddress,
+    this.isFavorite = false,
     required this.createdAt,
   });
 
   factory AddressCard.fromJson(Map<String, dynamic> json) {
     return AddressCard(
-      id:           json['_id'] as String? ?? '',
-      digipin:      (json['digipin'] as String? ?? '').toUpperCase(),
-      ownerId:      json['ownerId'] as String? ?? '',
-      title:        json['title'] as String? ?? '',
-      photoUrls:    List<String>.from(json['photoUrls'] as List? ?? []),
-      photoIds:     List<String>.from(json['photoIds']  as List? ?? []),
+      id: json['_id'] as String? ?? '',
+      digipin: (json['digipin'] as String? ?? '').toUpperCase(),
+      ownerId: json['ownerId'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      photoUrls: List<String>.from(json['photoUrls'] as List? ?? []),
+      photoIds: List<String>.from(json['photoIds'] as List? ?? []),
       humanAddress: json['humanAddress'] as String? ?? '',
-      createdAt:    json['createdAt'] != null
+      isFavorite: json['isFavorite'] as bool? ?? false,
+      createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
           : DateTime.now(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-    '_id':          id,
-    'digipin':      digipin,
-    'ownerId':      ownerId,
-    'title':        title,
-    'photoUrls':    photoUrls,
-    'photoIds':     photoIds,
-    'humanAddress': humanAddress,
-    'createdAt':    createdAt.toIso8601String(),
-  };
+        '_id': id,
+        'digipin': digipin,
+        'ownerId': ownerId,
+        'title': title,
+        'photoUrls': photoUrls,
+        'photoIds': photoIds,
+        'humanAddress': humanAddress,
+        'isFavorite': isFavorite,
+        'createdAt': createdAt.toIso8601String(),
+      };
 
   AddressCard copyWith({
     String? title,
     List<String>? photoUrls,
     List<String>? photoIds,
     String? humanAddress,
+    bool? isFavorite,
   }) =>
       AddressCard(
-        id:           id,
-        digipin:      digipin,
-        ownerId:      ownerId,
-        title:        title ?? this.title,
-        photoUrls:    photoUrls ?? this.photoUrls,
-        photoIds:     photoIds ?? this.photoIds,
+        id: id,
+        digipin: digipin,
+        ownerId: ownerId,
+        title: title ?? this.title,
+        photoUrls: photoUrls ?? this.photoUrls,
+        photoIds: photoIds ?? this.photoIds,
         humanAddress: humanAddress ?? this.humanAddress,
-        createdAt:    createdAt,
+        isFavorite: isFavorite ?? this.isFavorite,
+        createdAt: createdAt,
       );
 
   /// Returns the public share URL for this card.

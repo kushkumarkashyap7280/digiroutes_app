@@ -9,30 +9,54 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/map_widgets.dart';
 import '../../core/sound.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/address_card.dart';
 import '../../data/repositories/cards_repository.dart';
 import '../../logic/digipin.dart';
 import '../../logic/providers.dart';
 
+/// Creates a new card, or edits [existing] when provided.
 class CreateCardScreen extends ConsumerStatefulWidget {
-  const CreateCardScreen({super.key});
+  final AddressCard? existing;
+  const CreateCardScreen({super.key, this.existing});
 
   @override
   ConsumerState<CreateCardScreen> createState() => _CreateCardScreenState();
 }
 
 class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
-  final _formKey      = GlobalKey<FormState>();
-  final _titleCtrl    = TextEditingController();
-  final _addressCtrl  = TextEditingController();
-  final _picker       = ImagePicker();
-  final _cardsRepo    = CardsRepository();
+  final _formKey = GlobalKey<FormState>();
+  final _titleCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _picker = ImagePicker();
+  final _cardsRepo = CardsRepository();
 
   DigipinCoords? _pickedLocation;
   String? _generatedDigipin;
-  List<File> _photos = [];
+  final List<File> _photos = [];
+  // Already-uploaded photos (edit mode) as parallel url / publicId lists.
+  final List<String> _keptUrls = [];
+  final List<String> _keptIds = [];
+  bool get _isEdit => widget.existing != null;
+  int get _photoCount => _keptUrls.length + _photos.length;
   bool _isLocating = false;
-  bool _isSaving   = false;
+  bool _isSaving = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = widget.existing;
+    if (c != null) {
+      _titleCtrl.text = c.title;
+      _addressCtrl.text = c.humanAddress;
+      _generatedDigipin = c.digipin;
+      try {
+        _pickedLocation = getLatLngFromDigiPin(c.digipin);
+      } catch (_) {}
+      _keptUrls.addAll(c.photoUrls);
+      _keptIds.addAll(c.photoIds);
+    }
+  }
 
   @override
   void dispose() {
@@ -49,7 +73,7 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () => context.pop(),
         ),
-        title: Text('New Address Card',
+        title: Text(_isEdit ? 'Edit Card' : 'New Address Card',
             style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
       ),
       body: Form(
@@ -60,7 +84,7 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Step 1: Location ──────────────────────────────────────
-              _StepHeader(number: '1', label: 'Pick Location'),
+              const _StepHeader(number: '1', label: 'Pick Location'),
               const SizedBox(height: 12),
 
               // Map preview
@@ -79,7 +103,8 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                           color: AppTheme.surface2Color(context),
                           alignment: Alignment.center,
                           child: Icon(Icons.location_searching_rounded,
-                              color: AppTheme.mutedColor(context).withOpacity(0.6),
+                              color: AppTheme.mutedColor(context)
+                                  .withValues(alpha: 0.6),
                               size: 40),
                         ),
                 ),
@@ -90,19 +115,27 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isLocating ? null : _useCurrentLocation,
-                      icon: _isLocating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppTheme.orange))
-                          : const Icon(Icons.my_location_rounded, size: 16),
-                      label: Text(
-                          _isLocating ? 'Locating...' : 'Use Current Location',
-                          style: GoogleFonts.outfit(fontSize: 13)),
-                    ),
+                    child: _isEdit
+                        ? Text('Location is fixed once a card is created.',
+                            style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: AppTheme.mutedColor(context)))
+                        : OutlinedButton.icon(
+                            onPressed: _isLocating ? null : _useCurrentLocation,
+                            icon: _isLocating
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: AppTheme.orange))
+                                : const Icon(Icons.my_location_rounded,
+                                    size: 16),
+                            label: Text(
+                                _isLocating
+                                    ? 'Locating...'
+                                    : 'Use Current Location',
+                                style: GoogleFonts.outfit(fontSize: 13)),
+                          ),
                   ),
                   const SizedBox(width: 10),
                   if (_generatedDigipin != null)
@@ -118,7 +151,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                 ],
               ).animate(delay: 150.ms).fadeIn(),
 
-              if (_generatedDigipin == null && _pickedLocation == null)
+              if (!_isEdit &&
+                  _generatedDigipin == null &&
+                  _pickedLocation == null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
@@ -131,7 +166,7 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
               const SizedBox(height: 28),
 
               // ── Step 2: Details ───────────────────────────────────────
-              _StepHeader(number: '2', label: 'Card Details'),
+              const _StepHeader(number: '2', label: 'Card Details'),
               const SizedBox(height: 12),
 
               TextFormField(
@@ -159,11 +194,44 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
               const SizedBox(height: 28),
 
               // ── Step 3: Photos ─────────────────────────────────────────
-              _StepHeader(number: '3', label: 'Entrance Photos (max 2)'),
+              const _StepHeader(
+                  number: '3', label: 'Entrance Photos (max 2 · 4MB each)'),
               const SizedBox(height: 12),
 
               Row(
                 children: [
+                  ..._keptUrls.asMap().entries.map((e) => Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(e.value,
+                                  width: 80, height: 80, fit: BoxFit.cover),
+                            ),
+                            Positioned(
+                              top: 2,
+                              right: 2,
+                              child: GestureDetector(
+                                onTap: () => setState(() {
+                                  _keptUrls.removeAt(e.key);
+                                  _keptIds.removeAt(e.key);
+                                }),
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.danger,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.close,
+                                      size: 14, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
                   ..._photos.asMap().entries.map((e) => Padding(
                         padding: const EdgeInsets.only(right: 10),
                         child: Stack(
@@ -181,8 +249,8 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                               top: 2,
                               right: 2,
                               child: GestureDetector(
-                                onTap: () => setState(
-                                    () => _photos.removeAt(e.key)),
+                                onTap: () =>
+                                    setState(() => _photos.removeAt(e.key)),
                                 child: Container(
                                   width: 22,
                                   height: 22,
@@ -198,7 +266,7 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                           ],
                         ),
                       )),
-                  if (_photos.length < 2)
+                  if (_photoCount < 2)
                     GestureDetector(
                       onTap: _pickPhoto,
                       child: Container(
@@ -226,9 +294,10 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.danger.withOpacity(0.1),
+                    color: AppTheme.danger.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.danger.withOpacity(0.4)),
+                    border: Border.all(
+                        color: AppTheme.danger.withValues(alpha: 0.4)),
                   ),
                   child: Text(_error!,
                       style: GoogleFonts.outfit(
@@ -252,7 +321,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
                   label: Text(
                     _generatedDigipin == null
                         ? 'Pick a location first'
-                        : (_isSaving ? 'Saving...' : 'Save Card'),
+                        : (_isSaving
+                            ? 'Saving...'
+                            : (_isEdit ? 'Save Changes' : 'Save Card')),
                     style: GoogleFonts.outfit(
                         fontSize: 15, fontWeight: FontWeight.w600),
                   ),
@@ -278,10 +349,12 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
         perm = await Geolocator.requestPermission();
       }
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
       );
       setState(() {
-        _pickedLocation = DigipinCoords(latitude: pos.latitude, longitude: pos.longitude);
+        _pickedLocation =
+            DigipinCoords(latitude: pos.latitude, longitude: pos.longitude);
         try {
           _generatedDigipin = getDigiPin(pos.latitude, pos.longitude);
         } catch (_) {
@@ -301,8 +374,8 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined,
-                  color: AppTheme.orange),
+              leading:
+                  const Icon(Icons.camera_alt_outlined, color: AppTheme.orange),
               title: const Text('Camera'),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
@@ -327,11 +400,11 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
     if (xFile == null) return;
 
     final file = File(xFile.path);
-    const maxBytes = 2 * 1024 * 1024;
+    const maxBytes = CardsRepository.maxImageBytes;
     if (await file.length() > maxBytes) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Image is too large — please pick one under 2MB.',
+          content: Text('Image is too large — please pick one under 4MB.',
               style: GoogleFonts.outfit()),
           backgroundColor: AppTheme.danger,
         ));
@@ -346,12 +419,15 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_generatedDigipin == null) return;
 
-    setState(() { _isSaving = true; _error = null; });
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
 
     try {
-      // Upload photos
-      final photoUrls = <String>[];
-      final photoIds  = <String>[];
+      // Upload new photos (kept ones are already on Cloudinary)
+      final photoUrls = <String>[..._keptUrls];
+      final photoIds = <String>[..._keptIds];
 
       for (final photo in _photos) {
         final result = await _cardsRepo.uploadImage(photo);
@@ -359,14 +435,29 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
         photoIds.add(result.publicId);
       }
 
+      if (_isEdit) {
+        final updated = await ref.read(cardsProvider.notifier).updateCard(
+              widget.existing!.id,
+              title: _titleCtrl.text.trim(),
+              humanAddress: _addressCtrl.text.trim(),
+              photoUrls: photoUrls,
+              photoIds: photoIds,
+            );
+        if (updated != null && mounted) {
+          AppSound.tap(ref);
+          context.pop(updated);
+        }
+        return;
+      }
+
       // Create card
       final card = await ref.read(cardsProvider.notifier).createCard(
-        digipin:      _generatedDigipin!,
-        title:        _titleCtrl.text.trim(),
-        humanAddress: _addressCtrl.text.trim(),
-        photoUrls:    photoUrls,
-        photoIds:     photoIds,
-      );
+            digipin: _generatedDigipin!,
+            title: _titleCtrl.text.trim(),
+            humanAddress: _addressCtrl.text.trim(),
+            photoUrls: photoUrls,
+            photoIds: photoIds,
+          );
 
       if (card != null && mounted) {
         AppSound.tap(ref);
@@ -375,9 +466,9 @@ class _CreateCardScreenState extends ConsumerState<CreateCardScreen> {
         setState(() => _error = 'Failed to save card. Please try again.');
       }
     } catch (e) {
-      setState(() => _error = 'Error: ${e.toString()}');
+      setState(() => _error = e.toString());
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 }
