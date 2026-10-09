@@ -4,9 +4,12 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/card_categories.dart';
+import '../../core/card_share.dart';
 import '../../core/map_widgets.dart';
 import '../../core/sound.dart';
 import '../../core/theme/app_theme.dart';
@@ -14,6 +17,7 @@ import '../../data/models/address_card.dart';
 import '../../data/repositories/cards_repository.dart';
 import '../../logic/digipin.dart';
 import '../../logic/providers.dart';
+import '../widgets/qr_sheet.dart';
 
 class CardDetailScreen extends ConsumerStatefulWidget {
   final String digipin;
@@ -135,7 +139,7 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
           style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
         ),
         actions: [
-          if (_isOwner) ...[
+          if (_isOwner)
             IconButton(
               icon: Icon(
                 _card!.isFavorite
@@ -146,22 +150,41 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
               onPressed: _toggleFavorite,
               tooltip: _card!.isFavorite ? 'Unfavorite' : 'Favorite',
             ),
+          if (_card != null)
             IconButton(
-              icon: const Icon(Icons.edit_outlined, color: AppTheme.orange),
-              onPressed: _edit,
-              tooltip: 'Edit',
+              icon: const Icon(LucideIcons.qrCode, color: AppTheme.orange),
+              onPressed: _showQr,
+              tooltip: 'QR code',
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: AppTheme.danger),
-              onPressed: _delete,
-              tooltip: 'Delete',
-            ),
-          ],
           IconButton(
             icon: const Icon(Icons.share_rounded, color: AppTheme.orange),
             onPressed: _share,
             tooltip: 'Share',
           ),
+          if (_isOwner)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              onSelected: (v) => v == 'edit' ? _edit() : _delete(),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: ListTile(
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Edit'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline, color: AppTheme.danger),
+                    title: Text('Delete',
+                        style: TextStyle(color: AppTheme.danger)),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       body: _loading
@@ -178,6 +201,10 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
                   onCopy: _copyDigipin,
                   onNavigate: _navigate,
                   onShare: _share,
+                  onQr: _showQr,
+                  onCall: () => _launch(Uri(scheme: 'tel', path: _card!.contactPhone)),
+                  onWhatsApp: () => _launch(Uri.parse(
+                      'https://wa.me/${_card!.whatsappNumber}?text=${Uri.encodeComponent('Hi, I am at ${_card!.title} (DIGIPIN ${_card!.digipin}).')}')),
                 ),
     );
   }
@@ -192,13 +219,30 @@ class _CardDetailScreenState extends ConsumerState<CardDetailScreen> {
     ));
   }
 
-  void _share() {
-    final url = _card?.shareUrl ??
-        'https://digiroutes.vercel.app/card/${widget.digipin}';
-    Share.share(
-      '${_card?.title ?? "Location"}\nDIGIPIN: ${widget.digipin}\n$url',
-      subject: _card?.title ?? 'DigiRoute Location',
-    );
+  Future<void> _share() async {
+    final card = _card;
+    if (card == null) {
+      Share.share(
+          'DIGIPIN: ${widget.digipin}\nhttps://digiroutes.vercel.app/card/${widget.digipin}');
+      return;
+    }
+    AppSound.tap(ref);
+    await shareCardRich(card);
+  }
+
+  void _showQr() {
+    final card = _card;
+    if (card != null) showCardQrSheet(context, card);
+  }
+
+  Future<void> _launch(Uri uri) async {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not open that app.', style: GoogleFonts.outfit()),
+        backgroundColor: AppTheme.danger,
+      ));
+    }
   }
 
   Future<void> _navigate() async {
@@ -220,6 +264,9 @@ class _CardBody extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onNavigate;
   final VoidCallback onShare;
+  final VoidCallback onQr;
+  final VoidCallback onCall;
+  final VoidCallback onWhatsApp;
 
   const _CardBody({
     required this.card,
@@ -230,6 +277,9 @@ class _CardBody extends StatelessWidget {
     required this.onCopy,
     required this.onNavigate,
     required this.onShare,
+    required this.onQr,
+    required this.onCall,
+    required this.onWhatsApp,
   });
 
   @override
@@ -379,6 +429,49 @@ class _CardBody extends StatelessWidget {
                   ).animate(delay: 200.ms).fadeIn(),
                 ],
 
+                if (CardCategories.byId(card?.category ?? '') != null) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Chip(
+                      avatar: Icon(CardCategories.byId(card!.category)!.icon,
+                          size: 16, color: AppTheme.orange),
+                      label: Text(CardCategories.byId(card!.category)!.label),
+                      backgroundColor: AppTheme.orangeSubtle,
+                      side: BorderSide.none,
+                    ),
+                  ).animate(delay: 220.ms).fadeIn(),
+                ],
+
+                if ((card?.deliveryNote ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.orangeSubtle,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.orangeGlow),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.sticky_note_2_outlined,
+                            color: AppTheme.orange, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(card!.deliveryNote,
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                height: 1.4,
+                                color: AppTheme.textColor(context),
+                              )),
+                        ),
+                      ],
+                    ),
+                  ).animate(delay: 240.ms).fadeIn().slideY(begin: 0.1),
+                ],
+
                 const SizedBox(height: 24),
 
                 // ── Map ────────────────────────────────────────────────────
@@ -418,19 +511,73 @@ class _CardBody extends StatelessWidget {
                   ),
                 ).animate(delay: 300.ms).fadeIn(),
 
+                if ((card?.contactPhone ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onCall,
+                          icon: const Icon(Icons.call_rounded, size: 18),
+                          label: Text('Call',
+                              style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onWhatsApp,
+                          icon: const Icon(Icons.chat_rounded, size: 18),
+                          label: Text('WhatsApp',
+                              style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF16A34A),
+                            side: const BorderSide(color: Color(0xFF16A34A)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ).animate(delay: 330.ms).fadeIn(),
+                ],
+
                 const SizedBox(height: 12),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onShare,
-                    icon: const Icon(Icons.share_rounded, size: 18),
-                    label: Text('Share Card Link',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                Row(
+                  children: [
+                    if (card != null) ...[
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: onQr,
+                          icon: const Icon(LucideIcons.qrCode, size: 18),
+                          label: Text('QR code',
+                              style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onShare,
+                        icon: const Icon(Icons.share_rounded, size: 18),
+                        label: Text('Share',
+                            style:
+                                GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ).animate(delay: 350.ms).fadeIn(),
 
                 const SizedBox(height: 32),

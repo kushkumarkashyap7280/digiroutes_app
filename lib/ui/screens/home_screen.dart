@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants.dart';
@@ -67,7 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _TopBar(
                   onMenu: () =>
                       ref.read(scaffoldKeyProvider).currentState?.openDrawer(),
-                  onAdd: () => context.push('/create'),
                 ),
               ),
             ),
@@ -89,7 +87,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     lat: _lat,
                     lon: _lon,
                     label: 'My DIGIPIN: $_currentDigipin'),
-                onSaveCard: () => context.push('/create'),
                 onClose: () => setState(() => _showDigipinCard = false),
               )
                   .animate()
@@ -206,8 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
 class _TopBar extends StatelessWidget {
   final VoidCallback onMenu;
-  final VoidCallback onAdd;
-  const _TopBar({required this.onMenu, required this.onAdd});
+  const _TopBar({required this.onMenu});
 
   @override
   Widget build(BuildContext context) {
@@ -231,12 +227,6 @@ class _TopBar extends StatelessWidget {
                   color: theme.textTheme.bodyLarge?.color,
                 )),
           ),
-          _GlassIconButton(
-            icon: Icons.add_rounded,
-            onPressed: onAdd,
-            tooltip: 'New Address Card',
-            accent: true,
-          ),
         ],
       ),
     );
@@ -246,35 +236,17 @@ class _TopBar extends StatelessWidget {
 class _GlassIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
-  final String? tooltip;
-  final bool accent;
-  const _GlassIconButton({
-    required this.icon,
-    required this.onPressed,
-    this.tooltip,
-    this.accent = false,
-  });
+  const _GlassIconButton({required this.icon, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Tooltip(
-      message: tooltip ?? '',
-      child: Material(
-        color: accent ? AppTheme.orange : Colors.transparent,
-        shape: const CircleBorder(),
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.all(9),
-            child: Icon(
-              icon,
-              size: 20,
-              color: accent ? Colors.white : theme.textTheme.bodyLarge?.color,
-            ),
-          ),
-        ),
+    return InkResponse(
+      onTap: onPressed,
+      radius: 22,
+      child: Padding(
+        padding: const EdgeInsets.all(9),
+        child: Icon(icon,
+            size: 20, color: Theme.of(context).textTheme.bodyLarge?.color),
       ),
     );
   }
@@ -289,7 +261,6 @@ class _DiginpinCard extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onShare;
   final VoidCallback onShareMaps;
-  final VoidCallback onSaveCard;
   final VoidCallback onClose;
 
   const _DiginpinCard({
@@ -299,7 +270,6 @@ class _DiginpinCard extends StatelessWidget {
     required this.onCopy,
     required this.onShare,
     required this.onShareMaps,
-    required this.onSaveCard,
     required this.onClose,
   });
 
@@ -371,17 +341,6 @@ class _DiginpinCard extends StatelessWidget {
                   icon: const Icon(Icons.share, size: 16),
                   label: const Text('Share'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: onSaveCard,
-                  icon: const Icon(Icons.bookmark_add, size: 16),
-                  label: const Text('Save'),
-                  style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
