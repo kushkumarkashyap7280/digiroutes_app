@@ -15,6 +15,19 @@ find the right door.
 
 ---
 
+## Documentation
+
+| Guide | For | Format |
+| --- | --- | --- |
+| **User Guide** — install, create a card, share it safely, scan a QR, route planner, FAQ | Anyone using DigiRoutes | [PDF](DigiRoutes_User_Guide.pdf) · [Markdown](DigiRoutes_User_Guide.md) · also on the [website](https://digiroutes.vercel.app/guide/DigiRoutes_User_Guide.pdf) |
+| **Project Guide** — problem, architecture, DIGIPIN maths, all 29 features, API, database, demo script | The project team, teachers, reviewers | [PDF](DigiRoutes_Project_Guide.pdf) · [Markdown](DigiRoutes_Project_Guide.md) |
+
+Both PDFs are generated from the Markdown files next to them (`tools/guide-pdf/regen.sh`
+in the maintainer's workspace); edit the `.md`, then regenerate. Documentation-only
+commits don't trigger a release build (see *Tests, CI and releases*).
+
+---
+
 ## Features
 
 ### Address cards
@@ -241,6 +254,9 @@ GitHub Actions (`.github/workflows/build-apk.yml`) runs on every push to
 `RELEASE_KEYSTORE_BASE64`, `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS`,
 `RELEASE_KEY_PASSWORD`) → publishes release **`vX.Y.Z`** with the file
 **`digiroutes-vX.Y.Z.apk`**.
+
+Pushes that only touch docs (`*.md`, `*.pdf`, `docs/`) are ignored by the workflow
+(`paths-ignore`), so editing a README or guide never rebuilds or overwrites a release.
 
 **Versioning rule:** every change that ships in the APK must bump `version:` in
 `pubspec.yaml` (semver: patch = fix, minor = feature, major = breaking) — the

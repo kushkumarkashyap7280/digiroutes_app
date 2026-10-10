@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    # Docs-only pushes (README, guides, their PDFs) must not rebuild/overwrite a release.
+    paths-ignore:
+      - '**.md'
+      - '**.pdf'
+      - 'docs/**'
     tags:
       - 'v*'
   workflow_dispatch:
